@@ -24,6 +24,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var _ ecache.Cache = (*Cache)(nil)
+
 type Cache struct {
 	client redis.Cmdable
 }
@@ -37,9 +39,9 @@ func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Du
 }
 
 func (c *Cache) Get(ctx context.Context, key string) (val ecache.Value) {
-	val.AnyValue.Val, val.AnyValue.Err = c.client.Get(ctx, key).Result()
-	if val.AnyValue.Err != nil && errors.Is(val.AnyValue.Err, redis.Nil) {
-		val.AnyValue.Err = errs.ErrKeyNotExist
+	val.Val, val.Err = c.client.Get(ctx, key).Result()
+	if val.Err != nil && errors.Is(val.Err, redis.Nil) {
+		val.Err = errs.ErrKeyNotExist
 	}
 	return
 }
