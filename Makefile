@@ -24,3 +24,8 @@ tidy:
 check:
 	@$(MAKE) --no-print-directory fmt
 	@$(MAKE) --no-print-directory tidy
+
+# e2e 测试
+.PHONY: e2e
+e2e:
+	sh ./script/integrate_test.sh
