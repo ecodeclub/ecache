@@ -129,68 +129,6 @@ func TestCache_e2e_Get(t *testing.T) {
 	}
 }
 
-func TestCache_e2e_SetEX(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
-	require.NoError(t, rdb.Ping(context.Background()).Err())
-
-	testCase := []struct {
-		name   string
-		before func(ctx context.Context, t *testing.T)
-		after  func(ctx context.Context, t *testing.T)
-
-		key    string
-		val    string
-		expire time.Duration
-		verify func(t *testing.T, key string)
-	}{
-		{
-			name:   "testex",
-			before: func(ctx context.Context, t *testing.T) {},
-			after: func(ctx context.Context, t *testing.T) {
-				require.NoError(t, rdb.Del(context.Background(), "testex").Err())
-			},
-			key:    "testex",
-			val:    "hello ecache",
-			expire: time.Minute * 2,
-			verify: func(t *testing.T, key string) {
-				d, err := rdb.TTL(context.Background(), key).Result()
-				require.NoError(t, err)
-				assert.LessOrEqual(t, d, time.Minute*3)
-			},
-		},
-		{
-			name:   "testex",
-			before: func(ctx context.Context, t *testing.T) {},
-			after: func(ctx context.Context, t *testing.T) {
-				require.NoError(t, rdb.Del(context.Background(), "testex").Err())
-			},
-			key:    "testex",
-			val:    "hello go",
-			expire: time.Second * 10,
-			verify: func(t *testing.T, key string) {
-				d, err := rdb.TTL(context.Background(), key).Result()
-				require.NoError(t, err)
-				assert.LessOrEqual(t, time.Second*5, d)
-			},
-		},
-	}
-
-	for _, tc := range testCase {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancelFunc()
-			c := NewCache(rdb)
-			tc.before(ctx, t)
-			err := c.SetEX(ctx, tc.key, tc.val, tc.expire)
-			require.NoError(t, err)
-			tc.verify(t, tc.key)
-			tc.after(ctx, t)
-		})
-	}
-}
-
 func TestCache_e2e_SetNX(t *testing.T) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",

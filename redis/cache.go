@@ -38,10 +38,6 @@ func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Du
 	return c.client.Set(ctx, key, val, expiration).Err()
 }
 
-func (c *Cache) SetEX(ctx context.Context, key string, val any, expiration time.Duration) error {
-	return c.client.SetEx(ctx, key, val, expiration).Err()
-}
-
 func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
 	return c.client.SetNX(ctx, key, val, expiration).Result()
 }

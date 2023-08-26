@@ -141,44 +141,6 @@ func TestCache_Get(t *testing.T) {
 	}
 }
 
-func TestCache_SetEX(t *testing.T) {
-	testCase := []struct {
-		name       string
-		mock       func(*gomock.Controller) redis.Cmdable
-		key        string
-		val        string
-		expiration time.Duration
-		wantErr    error
-	}{
-		{
-			name: "testex",
-			mock: func(ctrl *gomock.Controller) redis.Cmdable {
-				cmd := mocks.NewMockCmdable(ctrl)
-				status := redis.NewStatusCmd(context.Background())
-				status.SetVal("hello ecache")
-				cmd.EXPECT().
-					SetEx(context.Background(), "testex", "hello ecache", time.Second*10).
-					Return(status)
-				return cmd
-			},
-			key:        "testex",
-			val:        "hello ecache",
-			expiration: time.Second * 10,
-		},
-	}
-
-	for _, tc := range testCase {
-		t.Run(tc.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			c := NewCache(tc.mock(ctrl))
-			err := c.SetEX(context.Background(), tc.key, tc.val, tc.expiration)
-			assert.Equal(t, err, tc.wantErr)
-		})
-	}
-}
-
 func TestCache_SetNX(t *testing.T) {
 	testCase := []struct {
 		name       string

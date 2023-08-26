@@ -26,8 +26,6 @@ import (
 type Cache interface {
 	// Set 设置一个键值对，并且设置过期时间
 	Set(ctx context.Context, key string, val any, expiration time.Duration) error
-	// SetEX 设置一个键值对，并且设置过期时间（原子操作）
-	SetEX(ctx context.Context, key string, val any, expiration time.Duration) error
 	// SetNX 设置一个键值对如果key不存在则写入反之失败，并且设置过期时间
 	SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error)
 	// Get 返回一个 Value
