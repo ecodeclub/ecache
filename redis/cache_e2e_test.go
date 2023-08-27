@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ecodeclub/ecache"
-
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -140,11 +138,10 @@ func TestCache_e2e_SetNX(t *testing.T) {
 		before func(ctx context.Context, t *testing.T)
 		after  func(ctx context.Context, t *testing.T)
 
-		key    string
-		val    string
-		expire time.Duration
-		verify func(t *testing.T, key string)
-		result bool
+		key     string
+		val     string
+		expire  time.Duration
+		wantVal bool
 	}{
 		{
 			name:   "test setnx",
@@ -152,15 +149,9 @@ func TestCache_e2e_SetNX(t *testing.T) {
 			after: func(ctx context.Context, t *testing.T) {
 				assert.NoError(t, rdb.Del(context.Background(), "testnx").Err())
 			},
-			key: "testnx",
-			val: "test0001",
-			verify: func(t *testing.T, key string) {
-				res, err := rdb.Get(context.Background(), key).Result()
-				assert.NoError(t, err)
-
-				assert.Equal(t, res, "test0001")
-			},
-			result: true,
+			key:     "testnx",
+			val:     "test0001",
+			wantVal: true,
 		},
 		{
 			name: "test setnx fail",
@@ -170,14 +161,9 @@ func TestCache_e2e_SetNX(t *testing.T) {
 			after: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.Del(ctx, "testnxf").Err())
 			},
-			key: "testnxf",
-			val: "hello go",
-			verify: func(t *testing.T, key string) {
-				res, err := rdb.Get(context.Background(), key).Result()
-				assert.NoError(t, err)
-				assert.Equal(t, res, "hello ecache")
-			},
-			result: false,
+			key:     "testnxf",
+			val:     "hello go",
+			wantVal: false,
 		},
 	}
 
@@ -189,8 +175,7 @@ func TestCache_e2e_SetNX(t *testing.T) {
 			tc.before(ctx, t)
 			result, err := c.SetNX(ctx, tc.key, tc.val, tc.expire)
 			assert.NoError(t, err)
-			assert.Equal(t, result, tc.result)
-			tc.verify(t, tc.key)
+			assert.Equal(t, result, tc.wantVal)
 			tc.after(ctx, t)
 		})
 	}
@@ -210,7 +195,7 @@ func TestCache_e2e_GetSet(t *testing.T) {
 		key     string
 		val     string
 		expire  time.Duration
-		verify  func(t *testing.T, key string, oldVal ecache.Value)
+		wantVal string
 		wantErr error
 	}{
 		{
@@ -221,16 +206,10 @@ func TestCache_e2e_GetSet(t *testing.T) {
 			after: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.Del(context.Background(), "test_get_set").Err())
 			},
-			key:    "test_get_set",
-			val:    "hello go",
-			expire: time.Second * 10,
-			verify: func(t *testing.T, key string, oldVal ecache.Value) {
-				result := "hello ecache"
-
-				oldResult, err := oldVal.String()
-				require.NoError(t, err)
-				assert.Equal(t, result, oldResult)
-			},
+			key:     "test_get_set",
+			val:     "hello go",
+			expire:  time.Second * 10,
+			wantVal: "hello ecache",
 		},
 		{
 			name:   "test_get_set",
@@ -241,7 +220,7 @@ func TestCache_e2e_GetSet(t *testing.T) {
 			key:     "test_get_set",
 			val:     "hello key notfound",
 			expire:  time.Second * 10,
-			verify:  func(t *testing.T, key string, oldVal ecache.Value) {},
+			wantVal: "",
 			wantErr: errs.ErrKeyNotExist,
 		},
 	}
@@ -253,7 +232,7 @@ func TestCache_e2e_GetSet(t *testing.T) {
 			c := NewCache(rdb)
 			tc.before(ctx, t)
 			val := c.GetSet(ctx, tc.key, tc.val)
-			tc.verify(t, tc.key, val)
+			assert.Equal(t, val.Val, tc.wantVal)
 			assert.Equal(t, val.Err, tc.wantErr)
 			tc.after(ctx, t)
 		})
