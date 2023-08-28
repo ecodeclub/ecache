@@ -26,10 +26,14 @@ import (
 type Cache interface {
 	// Set 设置一个键值对，并且设置过期时间
 	Set(ctx context.Context, key string, val any, expiration time.Duration) error
+	// SetNX 设置一个键值对如果key不存在则写入反之失败，并且设置过期时间
+	SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error)
 	// Get 返回一个 Value
 	// 如果你需要检测 Err，可以使用 Value.Err
 	// 如果你需要知道 Key 是否存在，可以使用 Value.KeyNotFound
 	Get(ctx context.Context, key string) Value
+	// GetSet 设置一个新的值返回老的值 如果key没有老的值仍然设置成功，但是返回 errs.ErrKeyNotExist
+	GetSet(ctx context.Context, key string, val string) Value
 }
 
 // Value 代表一个从缓存中读取出来的值

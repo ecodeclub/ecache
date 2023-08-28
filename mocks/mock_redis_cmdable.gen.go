@@ -4160,7 +4160,7 @@ func (mr *MockCmdableMockRecorder) SetBit(arg0, arg1, arg2, arg3 interface{}) *g
 // SetEx mocks base method.
 func (m *MockCmdable) SetEx(arg0 context.Context, arg1 string, arg2 interface{}, arg3 time.Duration) *redis.StatusCmd {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetEx", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetEX", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*redis.StatusCmd)
 	return ret0
 }
@@ -4168,7 +4168,7 @@ func (m *MockCmdable) SetEx(arg0 context.Context, arg1 string, arg2 interface{},
 // SetEx indicates an expected call of SetEx.
 func (mr *MockCmdableMockRecorder) SetEx(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEx", reflect.TypeOf((*MockCmdable)(nil).SetEx), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEX", reflect.TypeOf((*MockCmdable)(nil).SetEx), arg0, arg1, arg2, arg3)
 }
 
 // SetNX mocks base method.

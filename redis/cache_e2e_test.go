@@ -126,3 +126,115 @@ func TestCache_e2e_Get(t *testing.T) {
 		})
 	}
 }
+
+func TestCache_e2e_SetNX(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name   string
+		before func(ctx context.Context, t *testing.T)
+		after  func(ctx context.Context, t *testing.T)
+
+		key     string
+		val     string
+		expire  time.Duration
+		wantVal bool
+	}{
+		{
+			name:   "test setnx",
+			before: func(ctx context.Context, t *testing.T) {},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.NoError(t, rdb.Del(context.Background(), "testnx").Err())
+			},
+			key:     "testnx",
+			val:     "test0001",
+			wantVal: true,
+		},
+		{
+			name: "test setnx fail",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.SetNX(ctx, "testnxf", "hello ecache", time.Minute).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(ctx, "testnxf").Err())
+			},
+			key:     "testnxf",
+			val:     "hello go",
+			wantVal: false,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			result, err := c.SetNX(ctx, tc.key, tc.val, tc.expire)
+			assert.NoError(t, err)
+			assert.Equal(t, result, tc.wantVal)
+			tc.after(ctx, t)
+		})
+	}
+}
+
+func TestCache_e2e_GetSet(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name   string
+		before func(ctx context.Context, t *testing.T)
+		after  func(ctx context.Context, t *testing.T)
+
+		key     string
+		val     string
+		expire  time.Duration
+		wantVal string
+		wantErr error
+	}{
+		{
+			name: "test_get_set",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_get_set", "hello ecache", time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_get_set").Err())
+			},
+			key:     "test_get_set",
+			val:     "hello go",
+			expire:  time.Second * 10,
+			wantVal: "hello ecache",
+		},
+		{
+			name:   "test_get_set",
+			before: func(ctx context.Context, t *testing.T) {},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_get_set").Err())
+			},
+			key:     "test_get_set",
+			val:     "hello key notfound",
+			expire:  time.Second * 10,
+			wantVal: "",
+			wantErr: errs.ErrKeyNotExist,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val := c.GetSet(ctx, tc.key, tc.val)
+			assert.Equal(t, val.Val, tc.wantVal)
+			assert.Equal(t, val.Err, tc.wantErr)
+			tc.after(ctx, t)
+		})
+	}
+}

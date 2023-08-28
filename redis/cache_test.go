@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/ecodeclub/ecache/mocks"
 	"github.com/redis/go-redis/v9"
@@ -136,5 +138,111 @@ func TestCache_Get(t *testing.T) {
 			}
 			assert.Equal(t, tc.wantVal, val.Val.(string))
 		})
+	}
+}
+
+func TestCache_SetNX(t *testing.T) {
+	testCase := []struct {
+		name       string
+		mock       func(*gomock.Controller) redis.Cmdable
+		key        string
+		val        string
+		expiration time.Duration
+		result     bool
+	}{
+		{
+			name: "setnx",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				boolCmd := redis.NewBoolCmd(context.Background())
+				boolCmd.SetVal(true)
+				cmd.EXPECT().
+					SetNX(context.Background(), "setnx_key", "hello ecache", time.Second*10).
+					Return(boolCmd)
+				return cmd
+			},
+			key:        "setnx_key",
+			val:        "hello ecache",
+			expiration: time.Second * 10,
+			result:     true,
+		},
+		{
+			name: "setnx-fail",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				boolCmd := redis.NewBoolCmd(context.Background())
+				boolCmd.SetVal(false)
+				cmd.EXPECT().
+					SetNX(context.Background(), "setnx-key", "hello ecache", time.Second*10).
+					Return(boolCmd)
+
+				return cmd
+			},
+			key:        "setnx-key",
+			val:        "hello ecache",
+			expiration: time.Second * 10,
+			result:     false,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := NewCache(tc.mock(ctrl))
+			val, err := c.SetNX(context.Background(), tc.key, tc.val, tc.expiration)
+			require.NoError(t, err)
+			assert.Equal(t, tc.result, val)
+		})
+	}
+}
+
+func TestCache_GetSet(t *testing.T) {
+	testCase := []struct {
+		name    string
+		mock    func(*gomock.Controller) redis.Cmdable
+		key     string
+		val     string
+		wantErr error
+	}{
+		{
+			name: "test_get_set",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				str := redis.NewStringCmd(context.Background())
+				str.SetVal("hello ecache")
+				cmd.EXPECT().
+					GetSet(context.Background(), "test_get_set", "hello go").
+					Return(str)
+				return cmd
+			},
+			key: "test_get_set",
+			val: "hello go",
+		},
+		{
+			name: "test_get_set_err",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				str := redis.NewStringCmd(context.Background())
+				str.SetErr(errs.ErrKeyNotExist)
+				cmd.EXPECT().
+					GetSet(context.Background(), "test_get_set_err", "hello ecache").
+					Return(str)
+				return cmd
+			},
+			key:     "test_get_set_err",
+			val:     "hello ecache",
+			wantErr: errs.ErrKeyNotExist,
+		},
+	}
+
+	for _, tc := range testCase {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		c := NewCache(tc.mock(ctrl))
+		val := c.GetSet(context.Background(), tc.key, tc.val)
+		assert.Equal(t, tc.wantErr, val.Err)
 	}
 }

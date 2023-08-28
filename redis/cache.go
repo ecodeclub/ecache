@@ -38,10 +38,22 @@ func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Du
 	return c.client.Set(ctx, key, val, expiration).Err()
 }
 
+func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
+	return c.client.SetNX(ctx, key, val, expiration).Result()
+}
+
 func (c *Cache) Get(ctx context.Context, key string) (val ecache.Value) {
 	val.Val, val.Err = c.client.Get(ctx, key).Result()
 	if val.Err != nil && errors.Is(val.Err, redis.Nil) {
 		val.Err = errs.ErrKeyNotExist
+	}
+	return
+}
+
+func (c *Cache) GetSet(ctx context.Context, key string, val string) (result ecache.Value) {
+	result.Val, result.Err = c.client.GetSet(ctx, key, val).Result()
+	if result.Err != nil && errors.Is(result.Err, redis.Nil) {
+		result.Err = errs.ErrKeyNotExist
 	}
 	return
 }
