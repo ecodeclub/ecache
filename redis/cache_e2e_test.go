@@ -238,3 +238,106 @@ func TestCache_e2e_GetSet(t *testing.T) {
 		})
 	}
 }
+
+func TestCache_e2e_LPush(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		val     []any
+		wantVal int64
+	}{
+		{
+			name:   "test_cache_lpush",
+			before: func(ctx context.Context, t *testing.T) {},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_cache_lpush").Err())
+			},
+			key:     "test_cache_lpush",
+			val:     []any{"1", "2"},
+			wantVal: 2,
+		},
+		{
+			name: "test_cache_lpush",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.LPush(context.Background(), "test_cache_lpush", "hello ecache", "hello go").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_cache_lpush").Err())
+			},
+			key:     "test_cache_lpush",
+			val:     []any{"123", "saaa"},
+			wantVal: 4,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val, err := c.LPush(ctx, tc.key, tc.val...)
+			require.NoError(t, err)
+			assert.Equal(t, val, tc.wantVal)
+			tc.after(ctx, t)
+		})
+	}
+}
+
+func TestCache_e2e_LPop(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		wantVal any
+		wantErr error
+	}{
+		{
+			name: "test_cache_pop",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.LPush(context.Background(), "test_cache_pop", "1", "2", "3", "4").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_cache_pop").Err())
+			},
+			key:     "test_cache_pop",
+			wantVal: "4",
+		},
+		{
+			name:   "test_cache_pop",
+			before: func(ctx context.Context, t *testing.T) {},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_cache_pop").Err())
+			},
+			key:     "test_cache_pop",
+			wantVal: "",
+			wantErr: errs.ErrKeyNotExist,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val := c.LPop(ctx, tc.key)
+			assert.Equal(t, val.Val, tc.wantVal)
+			assert.Equal(t, val.Err, tc.wantErr)
+			tc.after(ctx, t)
+		})
+	}
+}

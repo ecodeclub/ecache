@@ -34,6 +34,12 @@ type Cache interface {
 	Get(ctx context.Context, key string) Value
 	// GetSet 设置一个新的值返回老的值 如果key没有老的值仍然设置成功，但是返回 errs.ErrKeyNotExist
 	GetSet(ctx context.Context, key string, val string) Value
+	// LPush 将所有指定值插入存储在 的列表的头部key。
+	// 如果key不存在，则在执行推送操作之前将其创建为空列表。当key保存的值不是列表时，将返回错误
+	// 默认返回列表的数量
+	LPush(ctx context.Context, key string, val ...any) (int64, error)
+	// LPop
+	LPop(ctx context.Context, key string) Value
 }
 
 // Value 代表一个从缓存中读取出来的值
