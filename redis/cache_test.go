@@ -309,7 +309,7 @@ func TestCache_LPop(t *testing.T) {
 			wantVal: "test",
 		},
 		{
-			name: "test_cache_lpop",
+			name: "test_cache_lpop_err_nil",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				str := redis.NewStringCmd(context.Background())
@@ -320,6 +320,7 @@ func TestCache_LPop(t *testing.T) {
 				return cmd
 			},
 			key:     "test_cache_lpop",
+			wantVal: "",
 			wantErr: errs.ErrKeyNotExist,
 		},
 	}

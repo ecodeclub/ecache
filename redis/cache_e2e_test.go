@@ -257,6 +257,7 @@ func TestCache_e2e_LPush(t *testing.T) {
 			name:   "test_cache_lpush",
 			before: func(ctx context.Context, t *testing.T) {},
 			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(2), rdb.LLen(context.Background(), "test_cache_lpush").Val())
 				require.NoError(t, rdb.Del(context.Background(), "test_cache_lpush").Err())
 			},
 			key:     "test_cache_lpush",
@@ -264,11 +265,12 @@ func TestCache_e2e_LPush(t *testing.T) {
 			wantVal: 2,
 		},
 		{
-			name: "test_cache_lpush",
+			name: "test_cache_lpush_want_val",
 			before: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.LPush(context.Background(), "test_cache_lpush", "hello ecache", "hello go").Err())
 			},
 			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(4), rdb.LLen(context.Background(), "test_cache_lpush").Val())
 				require.NoError(t, rdb.Del(context.Background(), "test_cache_lpush").Err())
 			},
 			key:     "test_cache_lpush",
@@ -311,17 +313,29 @@ func TestCache_e2e_LPop(t *testing.T) {
 				require.NoError(t, rdb.LPush(context.Background(), "test_cache_pop", "1", "2", "3", "4").Err())
 			},
 			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(3), rdb.LLen(context.Background(), "test_cache_pop").Val())
 				require.NoError(t, rdb.Del(context.Background(), "test_cache_pop").Err())
 			},
 			key:     "test_cache_pop",
 			wantVal: "4",
 		},
 		{
-			name:   "test_cache_pop",
-			before: func(ctx context.Context, t *testing.T) {},
+			name: "test_cache_pop_one",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.LPush(context.Background(), "test_cache_pop", "1").Err())
+				require.NoError(t, rdb.LPop(context.Background(), "test_cache_pop").Err())
+			},
 			after: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.Del(context.Background(), "test_cache_pop").Err())
 			},
+			key:     "test_cache_pop",
+			wantVal: "",
+			wantErr: errs.ErrKeyNotExist,
+		},
+		{
+			name:    "test_cache_pop_err_nil",
+			before:  func(ctx context.Context, t *testing.T) {},
+			after:   func(ctx context.Context, t *testing.T) {},
 			key:     "test_cache_pop",
 			wantVal: "",
 			wantErr: errs.ErrKeyNotExist,
