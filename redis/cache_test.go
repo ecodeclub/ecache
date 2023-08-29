@@ -246,3 +246,94 @@ func TestCache_GetSet(t *testing.T) {
 		assert.Equal(t, tc.wantErr, val.Err)
 	}
 }
+
+func TestCache_LPush(t *testing.T) {
+	testCase := []struct {
+		name    string
+		mock    func(*gomock.Controller) redis.Cmdable
+		key     string
+		val     []any
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "test_list_push",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(2)
+				cmd.EXPECT().
+					LPush(context.Background(), "test_list_push", "1", "2").
+					Return(result)
+				return cmd
+			},
+			key:     "test_list_push",
+			val:     []any{"1", "2"},
+			wantVal: 2,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := NewCache(tc.mock(ctrl))
+			length, err := c.LPush(context.Background(), tc.key, tc.val...)
+			assert.Equal(t, tc.wantVal, length)
+			assert.Equal(t, tc.wantErr, err)
+		})
+	}
+}
+
+func TestCache_LPop(t *testing.T) {
+	testCase := []struct {
+		name    string
+		mock    func(*gomock.Controller) redis.Cmdable
+		key     string
+		wantVal string
+		wantErr error
+	}{
+		{
+			name: "test_cache_lpop",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				str := redis.NewStringCmd(context.Background())
+				str.SetVal("test")
+				cmd.EXPECT().
+					LPop(context.Background(), "test_cache_lpop").
+					Return(str)
+				return cmd
+			},
+			key:     "test_cache_lpop",
+			wantVal: "test",
+		},
+		{
+			name: "test_cache_lpop_err_nil",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				str := redis.NewStringCmd(context.Background())
+				str.SetErr(errs.ErrKeyNotExist)
+				cmd.EXPECT().
+					LPop(context.Background(), "test_cache_lpop").
+					Return(str)
+				return cmd
+			},
+			key:     "test_cache_lpop",
+			wantVal: "",
+			wantErr: errs.ErrKeyNotExist,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := NewCache(tc.mock(ctrl))
+			val := c.LPop(context.Background(), tc.key)
+			assert.Equal(t, tc.wantVal, val.Val)
+			assert.Equal(t, tc.wantErr, val.Err)
+		})
+	}
+}
