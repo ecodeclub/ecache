@@ -69,3 +69,12 @@ func (c *Cache) LPop(ctx context.Context, key string) (result ecache.Value) {
 	}
 	return
 }
+
+func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, error) {
+	return c.client.SAdd(ctx, key, members...).Result()
+}
+
+func (c *Cache) SRem(ctx context.Context, key string, members ...any) (result ecache.Value) {
+	result.Val, result.Err = c.client.SRem(ctx, key, members...).Result()
+	return
+}
