@@ -462,8 +462,32 @@ func TestCache_e2e_SRem(t *testing.T) {
 				assert.Equal(t, int64(2), rdb.SCard(context.Background(), "test_e2e_srem").Val())
 				require.NoError(t, rdb.Del(context.Background(), "test_e2e_srem").Err())
 			},
-			key: "test_e2e_srem",
-			val: []any{"go"},
+			key:     "test_e2e_srem",
+			val:     []any{"go"},
+			wantVal: 0,
+			wantErr: nil,
+		},
+		{
+			name:    "srem e2e key nil",
+			before:  func(ctx context.Context, t *testing.T) {},
+			after:   func(ctx context.Context, t *testing.T) {},
+			key:     "test_e2e_srem",
+			val:     []any{"ecache"},
+			wantVal: 0,
+			wantErr: nil,
+		},
+		{
+			name: "srem e2e section ignore",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.SAdd(context.Background(), "test_e2e_srem", "hello", "ecache").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(1), rdb.SCard(context.Background(), "test_e2e_srem").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_srem").Err())
+			},
+			key:     "test_e2e_srem",
+			val:     []any{"hello", "go"},
+			wantVal: 1,
 		},
 	}
 

@@ -416,6 +416,53 @@ func TestCache_SRem(t *testing.T) {
 			val:     []any{"hello", "hello go"},
 			wantVal: 2,
 		},
+		{
+			name: "srem ignore",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(0)
+				cmd.EXPECT().
+					SRem(context.Background(), "test_srem", "hello").
+					Return(result)
+				return cmd
+			},
+			key:     "test_srem",
+			val:     []any{"hello"},
+			wantVal: 0,
+		},
+		{
+			name: "srem error",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(0)
+				result.SetErr(nil)
+				cmd.EXPECT().
+					SRem(context.Background(), "test_srem", "hello").
+					Return(result)
+				return cmd
+			},
+			key:     "test_srem",
+			val:     []any{"hello"},
+			wantVal: 0,
+			wantErr: nil,
+		},
+		{
+			name: "srem section ignore",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(1)
+				cmd.EXPECT().
+					SRem(context.Background(), "test_srem", "hello", "go").
+					Return(result)
+				return cmd
+			},
+			key:     "test_srem",
+			val:     []any{"hello", "go"},
+			wantVal: 1,
+		},
 	}
 
 	for _, tc := range testCase {
