@@ -151,7 +151,7 @@ func TestCache_SetNX(t *testing.T) {
 		result     bool
 	}{
 		{
-			name: "setnx",
+			name: "setnx value",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				boolCmd := redis.NewBoolCmd(context.Background())
@@ -167,7 +167,7 @@ func TestCache_SetNX(t *testing.T) {
 			result:     true,
 		},
 		{
-			name: "setnx-fail",
+			name: "setnx error",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				boolCmd := redis.NewBoolCmd(context.Background())
@@ -207,7 +207,7 @@ func TestCache_GetSet(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "test_get_set",
+			name: "getset value",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				str := redis.NewStringCmd(context.Background())
@@ -221,11 +221,11 @@ func TestCache_GetSet(t *testing.T) {
 			val: "hello go",
 		},
 		{
-			name: "test_get_set_err",
+			name: "getset error",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				str := redis.NewStringCmd(context.Background())
-				str.SetErr(errs.ErrKeyNotExist)
+				str.SetErr(redis.Nil)
 				cmd.EXPECT().
 					GetSet(context.Background(), "test_get_set_err", "hello ecache").
 					Return(str)
@@ -257,7 +257,7 @@ func TestCache_LPush(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "test_list_push",
+			name: "lpush value",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				result := redis.NewIntCmd(context.Background())
@@ -295,7 +295,7 @@ func TestCache_LPop(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "test_cache_lpop",
+			name: "lpop value",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				str := redis.NewStringCmd(context.Background())
@@ -309,11 +309,11 @@ func TestCache_LPop(t *testing.T) {
 			wantVal: "test",
 		},
 		{
-			name: "test_cache_lpop_err_nil",
+			name: "lpop error",
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := mocks.NewMockCmdable(ctrl)
 				str := redis.NewStringCmd(context.Background())
-				str.SetErr(errs.ErrKeyNotExist)
+				str.SetErr(redis.Nil)
 				cmd.EXPECT().
 					LPop(context.Background(), "test_cache_lpop").
 					Return(str)
@@ -334,6 +334,146 @@ func TestCache_LPop(t *testing.T) {
 			val := c.LPop(context.Background(), tc.key)
 			assert.Equal(t, tc.wantVal, val.Val)
 			assert.Equal(t, tc.wantErr, val.Err)
+		})
+	}
+}
+
+func TestCache_SAdd(t *testing.T) {
+	testCase := []struct {
+		name    string
+		mock    func(*gomock.Controller) redis.Cmdable
+		key     string
+		val     []any
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "sadd value",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(2)
+				cmd.EXPECT().
+					SAdd(context.Background(), "test_sadd", "hello ecache", "hello go").
+					Return(result)
+				return cmd
+			},
+			key:     "test_sadd",
+			val:     []any{"hello ecache", "hello go"},
+			wantVal: 2,
+		},
+		{
+			name: "sadd ignore",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(1)
+				cmd.EXPECT().
+					SAdd(context.Background(), "test_sadd", "hello", "hello").
+					Return(result)
+				return cmd
+			},
+			key:     "test_sadd",
+			val:     []any{"hello", "hello"},
+			wantVal: 1,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := NewCache(tc.mock(ctrl))
+			length, err := c.SAdd(context.Background(), tc.key, tc.val...)
+			assert.Equal(t, length, tc.wantVal)
+			assert.Equal(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestCache_SRem(t *testing.T) {
+	testCase := []struct {
+		name    string
+		mock    func(*gomock.Controller) redis.Cmdable
+		key     string
+		val     []any
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "srem value",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(2)
+				cmd.EXPECT().
+					SRem(context.Background(), "test_srem", "hello", "hello go").
+					Return(result)
+				return cmd
+			},
+			key:     "test_srem",
+			val:     []any{"hello", "hello go"},
+			wantVal: 2,
+		},
+		{
+			name: "srem ignore",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(0)
+				cmd.EXPECT().
+					SRem(context.Background(), "test_srem", "hello").
+					Return(result)
+				return cmd
+			},
+			key:     "test_srem",
+			val:     []any{"hello"},
+			wantVal: 0,
+		},
+		{
+			name: "srem error",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(0)
+				result.SetErr(nil)
+				cmd.EXPECT().
+					SRem(context.Background(), "test_srem", "hello").
+					Return(result)
+				return cmd
+			},
+			key:     "test_srem",
+			val:     []any{"hello"},
+			wantVal: 0,
+			wantErr: nil,
+		},
+		{
+			name: "srem section ignore",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(1)
+				cmd.EXPECT().
+					SRem(context.Background(), "test_srem", "hello", "go").
+					Return(result)
+				return cmd
+			},
+			key:     "test_srem",
+			val:     []any{"hello", "go"},
+			wantVal: 1,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := NewCache(tc.mock(ctrl))
+			result := c.SRem(context.Background(), tc.key, tc.val...)
+			assert.Equal(t, result.Val, tc.wantVal)
+			assert.Equal(t, result.Err, tc.wantErr)
 		})
 	}
 }

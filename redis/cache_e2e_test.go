@@ -44,7 +44,7 @@ func TestCache_e2e_Set(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "set value",
+			name: "set e2e value",
 			after: func(ctx context.Context, t *testing.T) {
 				result, err := rdb.Get(ctx, "name").Result()
 				require.NoError(t, err)
@@ -89,7 +89,7 @@ func TestCache_e2e_Get(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "get value",
+			name: "get e2e value",
 			before: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.Set(ctx, "name", "大明", time.Minute).Err())
 			},
@@ -101,7 +101,7 @@ func TestCache_e2e_Get(t *testing.T) {
 			wantVal: "大明",
 		},
 		{
-			name:    "get error",
+			name:    "get e2e error",
 			key:     "name",
 			before:  func(ctx context.Context, t *testing.T) {},
 			after:   func(ctx context.Context, t *testing.T) {},
@@ -144,7 +144,7 @@ func TestCache_e2e_SetNX(t *testing.T) {
 		wantVal bool
 	}{
 		{
-			name:   "test setnx",
+			name:   "setnx e2e value",
 			before: func(ctx context.Context, t *testing.T) {},
 			after: func(ctx context.Context, t *testing.T) {
 				assert.NoError(t, rdb.Del(context.Background(), "testnx").Err())
@@ -154,14 +154,14 @@ func TestCache_e2e_SetNX(t *testing.T) {
 			wantVal: true,
 		},
 		{
-			name: "test setnx fail",
+			name: "setnx e2e fail",
 			before: func(ctx context.Context, t *testing.T) {
-				require.NoError(t, rdb.SetNX(ctx, "testnxf", "hello ecache", time.Minute).Err())
+				require.NoError(t, rdb.SetNX(ctx, "testnx", "hello ecache", time.Minute).Err())
 			},
 			after: func(ctx context.Context, t *testing.T) {
-				require.NoError(t, rdb.Del(ctx, "testnxf").Err())
+				require.NoError(t, rdb.Del(ctx, "testnx").Err())
 			},
-			key:     "testnxf",
+			key:     "testnx",
 			val:     "hello go",
 			wantVal: false,
 		},
@@ -199,11 +199,12 @@ func TestCache_e2e_GetSet(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "test_get_set",
+			name: "getset e2e value",
 			before: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.Set(context.Background(), "test_get_set", "hello ecache", time.Second*10).Err())
 			},
 			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "hello go", rdb.Get(context.Background(), "test_get_set").Val())
 				require.NoError(t, rdb.Del(context.Background(), "test_get_set").Err())
 			},
 			key:     "test_get_set",
@@ -212,15 +213,15 @@ func TestCache_e2e_GetSet(t *testing.T) {
 			wantVal: "hello ecache",
 		},
 		{
-			name:   "test_get_set",
+			name:   "getset e2e err",
 			before: func(ctx context.Context, t *testing.T) {},
 			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "hello key notfound", rdb.Get(context.Background(), "test_get_set").Val())
 				require.NoError(t, rdb.Del(context.Background(), "test_get_set").Err())
 			},
 			key:     "test_get_set",
 			val:     "hello key notfound",
 			expire:  time.Second * 10,
-			wantVal: "",
 			wantErr: errs.ErrKeyNotExist,
 		},
 	}
@@ -254,7 +255,7 @@ func TestCache_e2e_LPush(t *testing.T) {
 		wantVal int64
 	}{
 		{
-			name:   "test_cache_lpush",
+			name:   "lpush e2e value",
 			before: func(ctx context.Context, t *testing.T) {},
 			after: func(ctx context.Context, t *testing.T) {
 				assert.Equal(t, int64(2), rdb.LLen(context.Background(), "test_cache_lpush").Val())
@@ -265,7 +266,7 @@ func TestCache_e2e_LPush(t *testing.T) {
 			wantVal: 2,
 		},
 		{
-			name: "test_cache_lpush_want_val",
+			name: "lpush e2e want value",
 			before: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.LPush(context.Background(), "test_cache_lpush", "hello ecache", "hello go").Err())
 			},
@@ -308,7 +309,7 @@ func TestCache_e2e_LPop(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "test_cache_pop",
+			name: "lpop e2e value",
 			before: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.LPush(context.Background(), "test_cache_pop", "1", "2", "3", "4").Err())
 			},
@@ -320,7 +321,7 @@ func TestCache_e2e_LPop(t *testing.T) {
 			wantVal: "4",
 		},
 		{
-			name: "test_cache_pop_one",
+			name: "lpop e2e one value",
 			before: func(ctx context.Context, t *testing.T) {
 				require.NoError(t, rdb.LPush(context.Background(), "test_cache_pop", "1").Err())
 				require.NoError(t, rdb.LPop(context.Background(), "test_cache_pop").Err())
@@ -333,7 +334,7 @@ func TestCache_e2e_LPop(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name:    "test_cache_pop_err_nil",
+			name:    "lpop e2e err",
 			before:  func(ctx context.Context, t *testing.T) {},
 			after:   func(ctx context.Context, t *testing.T) {},
 			key:     "test_cache_pop",
@@ -349,6 +350,154 @@ func TestCache_e2e_LPop(t *testing.T) {
 			c := NewCache(rdb)
 			tc.before(ctx, t)
 			val := c.LPop(ctx, tc.key)
+			assert.Equal(t, val.Val, tc.wantVal)
+			assert.Equal(t, val.Err, tc.wantErr)
+			tc.after(ctx, t)
+		})
+	}
+}
+
+func TestCache_e2e_SAdd(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		val     []any
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name:   "sadd e2e value",
+			before: func(ctx context.Context, t *testing.T) {},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(2), rdb.SCard(context.Background(), "test_e2e_sadd").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_sadd").Err())
+			},
+			key:     "test_e2e_sadd",
+			val:     []any{"hello ecache", "hello go"},
+			wantVal: 2,
+		},
+		{
+			name: "sadd e2e ignore",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.SAdd(context.Background(), "test_e2e_sadd", "hello").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(1), rdb.SCard(context.Background(), "test_e2e_sadd").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_sadd").Err())
+			},
+			key:     "test_e2e_sadd",
+			val:     []any{"hello"},
+			wantVal: 0,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val, err := c.SAdd(ctx, tc.key, tc.val...)
+			assert.Equal(t, val, tc.wantVal)
+			assert.Equal(t, err, tc.wantErr)
+			tc.after(ctx, t)
+		})
+	}
+}
+
+func TestCache_e2e_SRem(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		val     []any
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "srem e2e value",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.SAdd(context.Background(), "test_e2e_srem", "hello", "ecache").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(1), rdb.SCard(context.Background(), "test_e2e_srem").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_srem").Err())
+			},
+			key:     "test_e2e_srem",
+			val:     []any{"hello"},
+			wantVal: 1,
+		},
+		{
+			name: "srem e2e nil",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.SAdd(context.Background(), "test_e2e_srem", "hello", "ecache").Err())
+				require.NoError(t, rdb.SRem(context.Background(), "test_e2e_srem", "hello", "ecache").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(0), rdb.SCard(context.Background(), "test_e2e_srem").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_srem").Err())
+			},
+			key: "test_e2e_srem",
+			val: []any{"hello"},
+		},
+		{
+			name: "srem e2e ignore",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.SAdd(context.Background(), "test_e2e_srem", "hello", "ecache").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(2), rdb.SCard(context.Background(), "test_e2e_srem").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_srem").Err())
+			},
+			key:     "test_e2e_srem",
+			val:     []any{"go"},
+			wantVal: 0,
+			wantErr: nil,
+		},
+		{
+			name:    "srem e2e key nil",
+			before:  func(ctx context.Context, t *testing.T) {},
+			after:   func(ctx context.Context, t *testing.T) {},
+			key:     "test_e2e_srem",
+			val:     []any{"ecache"},
+			wantVal: 0,
+			wantErr: nil,
+		},
+		{
+			name: "srem e2e section ignore",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.SAdd(context.Background(), "test_e2e_srem", "hello", "ecache").Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(1), rdb.SCard(context.Background(), "test_e2e_srem").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_srem").Err())
+			},
+			key:     "test_e2e_srem",
+			val:     []any{"hello", "go"},
+			wantVal: 1,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val := c.SRem(ctx, tc.key, tc.val...)
 			assert.Equal(t, val.Val, tc.wantVal)
 			assert.Equal(t, val.Err, tc.wantErr)
 			tc.after(ctx, t)
