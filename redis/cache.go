@@ -57,3 +57,24 @@ func (c *Cache) GetSet(ctx context.Context, key string, val string) (result ecac
 	}
 	return
 }
+
+func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error) {
+	return c.client.LPush(ctx, key, val...).Result()
+}
+
+func (c *Cache) LPop(ctx context.Context, key string) (result ecache.Value) {
+	result.Val, result.Err = c.client.LPop(ctx, key).Result()
+	if result.Err != nil && errors.Is(result.Err, redis.Nil) {
+		result.Err = errs.ErrKeyNotExist
+	}
+	return
+}
+
+func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, error) {
+	return c.client.SAdd(ctx, key, members...).Result()
+}
+
+func (c *Cache) SRem(ctx context.Context, key string, members ...any) (result ecache.Value) {
+	result.Val, result.Err = c.client.SRem(ctx, key, members...).Result()
+	return
+}
