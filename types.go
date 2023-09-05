@@ -44,6 +44,10 @@ type Cache interface {
 	SAdd(ctx context.Context, key string, members ...any) (int64, error)
 	// SRem 移除集合中的一个或多个成员元素，不存在的成员元素会被忽略。
 	SRem(ctx context.Context, key string, members ...any) Value
+	// IncrBy 设置一个key并自增 1 或者指定的值
+	IncrBy(ctx context.Context, key string, value int64) (int64, error)
+	// DecrBy 将 key 中储存的数字值减一
+	DecrBy(ctx context.Context, key string, value int64) (int64, error)
 }
 
 // Value 代表一个从缓存中读取出来的值

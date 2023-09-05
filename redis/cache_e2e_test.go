@@ -504,3 +504,143 @@ func TestCache_e2e_SRem(t *testing.T) {
 		})
 	}
 }
+
+func TestCache_e2e_IncrBy(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		val     int64
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "cache e2e incrby",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incr", 1, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "2", rdb.Get(context.Background(), "test_e2e_incr").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incr").Err())
+			},
+			key:     "test_e2e_incr",
+			val:     1,
+			wantVal: 2,
+		},
+		{
+			name: "cache e2e incrby not exists",
+			before: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(0), rdb.Exists(context.Background(), "test_e2e_incr").Val())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "1", rdb.Get(context.Background(), "test_e2e_incr").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incr").Err())
+			},
+			key:     "test_e2e_incr",
+			val:     1,
+			wantVal: 1,
+		},
+		{
+			name: "cache e2e incrby set value",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incr", 10, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "12", rdb.Get(context.Background(), "test_e2e_incr").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incr").Err())
+			},
+			key:     "test_e2e_incr",
+			val:     2,
+			wantVal: 12,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val, err := c.IncrBy(ctx, tc.key, tc.val)
+			assert.Equal(t, val, tc.wantVal)
+			assert.Equal(t, err, tc.wantErr)
+			tc.after(ctx, t)
+		})
+	}
+}
+
+func TestCache_e2e_DecrBy(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		val     int64
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "cache e2e decrby",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_decr", 1, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "0", rdb.Get(context.Background(), "test_e2e_decr").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_decr").Err())
+			},
+			key:     "test_e2e_decr",
+			val:     1,
+			wantVal: 0,
+		},
+		{
+			name: "cache e2e decrby not exists",
+			before: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, int64(0), rdb.Exists(context.Background(), "test_e2e_decr").Val())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "-1", rdb.Get(context.Background(), "test_e2e_decr").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_decr").Err())
+			},
+			key:     "test_e2e_decr",
+			val:     1,
+			wantVal: -1,
+		},
+		{
+			name: "cache e2e decrby set value",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_decr", 10, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				assert.Equal(t, "8", rdb.Get(context.Background(), "test_e2e_decr").Val())
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_decr").Err())
+			},
+			key:     "test_e2e_decr",
+			val:     2,
+			wantVal: 8,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val, err := c.DecrBy(ctx, tc.key, tc.val)
+			assert.Equal(t, val, tc.wantVal)
+			assert.Equal(t, err, tc.wantErr)
+			tc.after(ctx, t)
+		})
+	}
+}
