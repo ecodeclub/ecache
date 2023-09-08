@@ -477,3 +477,124 @@ func TestCache_SRem(t *testing.T) {
 		})
 	}
 }
+
+func TestCache_IncrBy(t *testing.T) {
+	testCase := []struct {
+		name    string
+		mock    func(*gomock.Controller) redis.Cmdable
+		key     string
+		val     int64
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "cache incr",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(int64(1))
+				cmd.EXPECT().
+					IncrBy(context.Background(), "test_incr", int64(1)).
+					Return(result)
+				return cmd
+			},
+			key:     "test_incr",
+			val:     1,
+			wantVal: 1,
+		},
+		{
+			name: "cache incr not zero",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(int64(21))
+				cmd.EXPECT().
+					IncrBy(context.Background(), "test_incr", int64(20)).
+					Return(result)
+				return cmd
+			},
+			key:     "test_incr",
+			val:     20,
+			wantVal: 21,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := NewCache(tc.mock(ctrl))
+			result, err := c.IncrBy(context.Background(), tc.key, tc.val)
+			assert.Equal(t, result, tc.wantVal)
+			assert.Equal(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestCache_DecrBy(t *testing.T) {
+	testCase := []struct {
+		name    string
+		mock    func(*gomock.Controller) redis.Cmdable
+		key     string
+		val     int64
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name: "cache decr",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(int64(0))
+				cmd.EXPECT().
+					DecrBy(context.Background(), "test_cache_decr", int64(1)).
+					Return(result)
+				return cmd
+			},
+			key: "test_cache_decr",
+			val: 1,
+		},
+		{
+			name: "cache decr not zero",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(int64(10))
+				cmd.EXPECT().
+					DecrBy(context.Background(), "test_cache_decr", int64(20)).
+					Return(result)
+				return cmd
+			},
+			key:     "test_cache_decr",
+			val:     20,
+			wantVal: 10,
+		},
+		{
+			name: "cache decr negative number",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				result := redis.NewIntCmd(context.Background())
+				result.SetVal(int64(-1))
+				cmd.EXPECT().
+					DecrBy(context.Background(), "test_cache_decr", int64(1)).
+					Return(result)
+				return cmd
+			},
+			key:     "test_cache_decr",
+			val:     1,
+			wantVal: -1,
+		},
+	}
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := NewCache(tc.mock(ctrl))
+			result, err := c.DecrBy(context.Background(), tc.key, tc.val)
+			assert.Equal(t, result, tc.wantVal)
+			assert.Equal(t, err, tc.wantErr)
+		})
+	}
+}

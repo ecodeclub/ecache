@@ -78,3 +78,11 @@ func (c *Cache) SRem(ctx context.Context, key string, members ...any) (result ec
 	result.Val, result.Err = c.client.SRem(ctx, key, members...).Result()
 	return
 }
+
+func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, error) {
+	return c.client.IncrBy(ctx, key, value).Result()
+}
+
+func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
+	return c.client.DecrBy(ctx, key, value).Result()
+}
