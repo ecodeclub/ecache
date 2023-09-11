@@ -644,3 +644,84 @@ func TestCache_e2e_DecrBy(t *testing.T) {
 		})
 	}
 }
+
+func TestCache_e2e_IncrByFloat(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		val     float64
+		wantVal float64
+		wantErr error
+	}{
+		{
+			name: "cache e2e incrbyfloat set value",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 10.50, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     0.1,
+			wantVal: 10.6,
+		},
+		{
+			name: "cache e2e incrbyfloat set exponential symbol",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 314e-2, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     0.0,
+			wantVal: 3.14,
+		},
+		{
+			name: "cache e2e incrbyfloat set by int",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 3, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     1.1,
+			wantVal: 4.1,
+		},
+		{
+			name: "cache e2e incrbyfloat set zero igon",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 3.0, time.Second*10).Err())
+				assert.Equal(t, "3", rdb.Get(context.Background(), "test_e2e_incrbyfloat").Val())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     1.000000000000000000000,
+			wantVal: 4,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val, err := c.IncrByFloat(ctx, tc.key, tc.val)
+			assert.Equal(t, tc.wantVal, val)
+			assert.Equal(t, tc.wantErr, err)
+			tc.after(ctx, t)
+		})
+	}
+
+}

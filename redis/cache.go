@@ -86,3 +86,7 @@ func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, err
 func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
 	return c.client.DecrBy(ctx, key, value).Result()
 }
+
+func (c *Cache) IncrByFloat(ctx context.Context, key string, value float64) (float64, error) {
+	return c.client.IncrByFloat(ctx, key, value).Result()
+}
