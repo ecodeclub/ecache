@@ -48,6 +48,8 @@ type Cache interface {
 	IncrBy(ctx context.Context, key string, value int64) (int64, error)
 	// DecrBy 将 key 中储存的数字值减一
 	DecrBy(ctx context.Context, key string, value int64) (int64, error)
+	// IncrByFloat 为 key 中所储存的值加上指定的浮点数增量值。
+	IncrByFloat(ctx context.Context, key string, value float64) (float64, error)
 }
 
 // Value 代表一个从缓存中读取出来的值
