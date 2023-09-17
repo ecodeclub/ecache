@@ -14,5 +14,63 @@
 
 package memory
 
+import (
+	"context"
+	"github.com/ecodeclub/ecache"
+	"time"
+)
+
+var _ ecache.Cache = (*Cache)(nil)
+
 type Cache struct {
+	client ecache.Cache
+}
+
+func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
+	return c.client.Set(ctx, key, val, expiration)
+}
+
+func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) Get(ctx context.Context, key string) ecache.Value {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) GetSet(ctx context.Context, key string, val string) ecache.Value {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) LPop(ctx context.Context, key string) ecache.Value {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) SRem(ctx context.Context, key string, members ...any) ecache.Value {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
+	//TODO implement me
+	panic("implement me")
 }
