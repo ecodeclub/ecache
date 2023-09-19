@@ -29,6 +29,7 @@ func newCachePriority() *CachePriority {
 	}
 }
 
+// AddUnit 设置新的优先级数据
 func (cp *CachePriority) AddUnit(priorityWeight int, node *rbTreeNode) {
 	existPriorityUnit, priorityErr := cp.FindUnitByPriorityWeight(priorityWeight)
 	if priorityErr == nil {
@@ -40,6 +41,12 @@ func (cp *CachePriority) AddUnit(priorityWeight int, node *rbTreeNode) {
 		node.priorityUnit = newPriorityUnit
 		cp.priorityData.Add(newPriorityUnit)
 	}
+}
+
+// DeleteUnit 移除优先级数据
+func (cp *CachePriority) DeleteUnit(node *rbTreeNode) {
+	priorityUnit := node.priorityUnit
+	delete(priorityUnit.cacheData, node.key)
 }
 
 func (cp *CachePriority) FindUnitByPriorityWeight(priorityWeight int) (*PriorityUnit, error) {
