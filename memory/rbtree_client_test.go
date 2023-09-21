@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"github.com/ecodeclub/ekit/list"
+	"github.com/ecodeclub/ekit/set"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -13,16 +14,15 @@ func compareTwoRBTreeClient(src *RBTreeClient, dst *RBTreeClient) bool {
 		return false
 	}
 	srcKeys, srcNodes := src.cacheData.KeyValues()
-	srcKeysMap := make(map[string]*rbTreeNode)
+	srcKeysMap := make(map[string]*rbTreeCacheNode)
 	for index, item := range srcKeys {
 		srcKeysMap[item] = srcNodes[index]
 	}
 	dstKeys, dstNodes := dst.cacheData.KeyValues()
-	dstKeysMap := make(map[string]*rbTreeNode)
+	dstKeysMap := make(map[string]*rbTreeCacheNode)
 	for index, item := range dstKeys {
 		dstKeysMap[item] = dstNodes[index]
 	}
-
 	for srcKey, srcNode := range srcKeysMap {
 		dstNode, ok := dstKeysMap[srcKey]
 		if !ok {
@@ -34,12 +34,12 @@ func compareTwoRBTreeClient(src *RBTreeClient, dst *RBTreeClient) bool {
 			}
 		}
 		if srcNode.unitType == unitTypeList {
-			srcNodeVal, ok := srcNode.val.(*list.LinkedList[any])
-			if !ok {
+			srcNodeVal, ok2 := srcNode.val.(*list.LinkedList[any])
+			if !ok2 {
 				return false
 			}
-			dstNodeVal, ok := dstNode.val.(*list.LinkedList[any])
-			if !ok {
+			dstNodeVal, ok3 := dstNode.val.(*list.LinkedList[any])
+			if !ok3 {
 				return false
 			}
 			if srcNodeVal.Len() != dstNodeVal.Len() {
@@ -47,7 +47,17 @@ func compareTwoRBTreeClient(src *RBTreeClient, dst *RBTreeClient) bool {
 			}
 		}
 		if srcNode.unitType == unitTypeSet {
-
+			srcNodeVal, ok2 := srcNode.val.(*set.MapSet[any])
+			if !ok2 {
+				return false
+			}
+			dstNodeVal, ok3 := dstNode.val.(*set.MapSet[any])
+			if !ok3 {
+				return false
+			}
+			if len(srcNodeVal.Keys()) != len(dstNodeVal.Keys()) {
+				return false
+			}
 		}
 	}
 
@@ -65,17 +75,56 @@ func TestRBTreeClientSet(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "set value to empty cache",
+			name: "缓存容量0，新增1",
 			startClient: func() *RBTreeClient {
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				return client
 			},
 			key:        "key1",
 			value:      "value1",
 			expiration: time.Minute,
 			wantClient: func() *RBTreeClient {
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
-				_ = client.cacheData.Add("key1", &rbTreeNode{})
+				client, _ := NewRBTreeClient()
+				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
+				return client
+			},
+		},
+		{
+			name: "缓存容量1，新增1",
+			startClient: func() *RBTreeClient {
+				client, _ := NewRBTreeClient()
+				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
+				return client
+			},
+			key:        "key2",
+			value:      "value2",
+			expiration: time.Minute,
+			wantClient: func() *RBTreeClient {
+				client, _ := NewRBTreeClient()
+				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
+				_ = client.cacheData.Add("key2", newKVRBTreeCacheNode("key2", "value2", time.Minute))
+				return client
+			},
+		},
+		{
+			name: "缓存容量1，覆盖",
+			startClient: func() *RBTreeClient {
+				client, _ := NewRBTreeClient()
+				key1Node := newKVRBTreeCacheNode("key1", "value2", time.Minute)
+				_ = client.cacheData.Add("key1", key1Node)
+				key1NodePriorityWeight := client.getValPriorityWeight(key1Node)
+				client.priorityData.SetCacheNodePriority(key1NodePriorityWeight, key1Node)
+				return client
+			},
+			key:        "key1",
+			value:      "value2",
+			expiration: time.Minute,
+			wantClient: func() *RBTreeClient {
+				client, _ := NewRBTreeClient()
+				key1Node := newKVRBTreeCacheNode("key1", "value2", time.Minute)
+				_ = client.cacheData.Add("key1", key1Node)
+				key1NodePriorityWeight := client.getValPriorityWeight(key1Node)
+				client.priorityData.SetCacheNodePriority(key1NodePriorityWeight, key1Node)
 				return client
 			},
 		},
@@ -108,7 +157,7 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 		{
 			name: "lpush one value to empty cache",
 			startClient: func() *RBTreeClient {
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				return client
 			},
 			key:        "key1",
@@ -117,11 +166,11 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			wantClient: func() *RBTreeClient {
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
-				node := &rbTreeNode{
+				node := &rbTreeCacheNode{
 					unitType: unitTypeList,
 					val:      valList,
 				}
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", node)
 				return client
 			},
@@ -130,7 +179,7 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 		{
 			name: "lpush two value to empty cache",
 			startClient: func() *RBTreeClient {
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				return client
 			},
 			key:        "key1",
@@ -140,11 +189,11 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				_ = valList.Append("value2")
-				node := &rbTreeNode{
+				node := &rbTreeCacheNode{
 					unitType: unitTypeList,
 					val:      valList,
 				}
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", node)
 				return client
 			},
@@ -155,11 +204,11 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			startClient: func() *RBTreeClient {
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
-				node := &rbTreeNode{
+				node := &rbTreeCacheNode{
 					unitType: unitTypeList,
 					val:      valList,
 				}
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", node)
 				return client
 			},
@@ -170,11 +219,11 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				_ = valList.Append("value2")
-				node := &rbTreeNode{
+				node := &rbTreeCacheNode{
 					unitType: unitTypeList,
 					val:      valList,
 				}
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", node)
 				return client
 			},
@@ -185,11 +234,11 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			startClient: func() *RBTreeClient {
 				valList1 := list.NewLinkedList[any]()
 				_ = valList1.Append("value1")
-				node := &rbTreeNode{
+				node := &rbTreeCacheNode{
 					unitType: unitTypeList,
 					val:      valList1,
 				}
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", node)
 				return client
 			},
@@ -199,17 +248,17 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			wantClient: func() *RBTreeClient {
 				valList1 := list.NewLinkedList[any]()
 				_ = valList1.Append("value1")
-				node := &rbTreeNode{
+				node := &rbTreeCacheNode{
 					unitType: unitTypeList,
 					val:      valList1,
 				}
 				valList2 := list.NewLinkedList[any]()
 				_ = valList2.Append("value1")
-				node2 := &rbTreeNode{
+				node2 := &rbTreeCacheNode{
 					unitType: unitTypeList,
 					val:      valList2,
 				}
-				client, _ := NewRBTreeClient(ComparatorRBTreeUnit())
+				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", node)
 				_ = client.cacheData.Add("key2", node2)
 				return client

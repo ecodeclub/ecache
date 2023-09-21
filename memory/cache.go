@@ -31,46 +31,37 @@ func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Du
 }
 
 func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	return c.client.SetNX(ctx, key, val, expiration)
 }
 
 func (c *Cache) Get(ctx context.Context, key string) ecache.Value {
-	//TODO implement me
-	panic("implement me")
+	return c.client.Get(ctx, key)
 }
 
 func (c *Cache) GetSet(ctx context.Context, key string, val string) ecache.Value {
-	//TODO implement me
-	panic("implement me")
+	return c.client.GetSet(ctx, key, val)
 }
 
 func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	return c.client.LPush(ctx, key, val...)
 }
 
 func (c *Cache) LPop(ctx context.Context, key string) ecache.Value {
-	//TODO implement me
-	panic("implement me")
+	return c.client.LPop(ctx, key)
 }
 
 func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	return c.client.SAdd(ctx, key, members...)
 }
 
 func (c *Cache) SRem(ctx context.Context, key string, members ...any) ecache.Value {
-	//TODO implement me
-	panic("implement me")
+	return c.client.SRem(ctx, key, members...)
 }
 
 func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	return c.client.IncrBy(ctx, key, value)
 }
 
 func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	return c.client.DecrBy(ctx, key, value)
 }
