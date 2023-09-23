@@ -155,8 +155,7 @@ func (c *Cache) Get(ctx context.Context, key string) ecache.Value {
 
 	// 过期删除
 	if ok {
-		_ = c.pq.Remove(ctx, node)
-		delete(c.index, key)
+		c.delete(node)
 		c.len--
 	}
 
@@ -245,24 +244,32 @@ func (c *Cache) clean() {
 	for {
 		select {
 		case <-ticker.C:
-			c.mu.Lock()
-			count := 0
-			for k, v := range c.index {
-				if v.Dl.Before(time.Now()) {
-					_ = c.pq.Remove(context.Background(), v)
-					delete(c.index, k)
-					c.len--
-				}
-				count++
-				if count >= c.scanCount {
-					break
-				}
-			}
-			c.mu.Unlock()
+			c.scan()
 		case <-c.closeC:
 			return
 		}
 	}
+}
+
+func (c *Cache) scan() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	count := 0
+	for _, v := range c.index {
+		if v.Dl.Before(time.Now()) {
+			c.delete(v)
+			c.len--
+		}
+		count++
+		if count >= c.scanCount {
+			break
+		}
+	}
+}
+
+func (c *Cache) delete(n *Node) {
+	_ = c.pq.Remove(context.Background(), n)
+	delete(c.index, n.Key)
 }
 
 type Node struct {
