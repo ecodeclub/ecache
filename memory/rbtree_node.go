@@ -9,7 +9,8 @@ import (
 
 // 缓存结点类型
 const (
-	unitTypeKV   = iota + 1 //普通键值对
+	unitTypeKV   = iota + 1 //普通键值对，只有普通键值对会参与淘汰
+	unitTypeKVNX            //NX键值对，这里和普通键值对区分开，因为 NX 键值对不参与淘汰
 	unitTypeList            //list，用list.LinkedList[any]实现
 	unitTypeSet             //set，用set.MapSet[any]实现
 	unitTypeNum             //int64，给IncrBy和DecrBy用
@@ -20,20 +21,35 @@ type rbTreeCacheNode struct {
 	key          string        //键
 	unitType     int           //单元类型
 	val          any           //值有四种情况
-	deadline     time.Time     //有效期，为0则表示永不过期
+	deadline     time.Time     //有效期，默认0，表示永不过期
+	callTime     time.Time     //缓存最后一次被调用的时间
+	callTimes    int           //缓存被调用的次数
 	priorityUnit *priorityNode //优先级数据的映射
 }
 
 func newKVRBTreeCacheNode(key string, val any, expiration time.Duration) *rbTreeCacheNode {
-	//计算过期时间
 	var deadline time.Time
-	if expiration > 0 {
+	if expiration != 0 {
 		deadline = time.Now().Add(expiration)
 	}
 
 	return &rbTreeCacheNode{
 		key:      key,
 		unitType: unitTypeKV,
+		val:      val,
+		deadline: deadline,
+	}
+}
+
+func newKVNXRBTreeCacheNode(key string, val any, expiration time.Duration) *rbTreeCacheNode {
+	var deadline time.Time
+	if expiration != 0 {
+		deadline = time.Now().Add(expiration)
+	}
+
+	return &rbTreeCacheNode{
+		key:      key,
+		unitType: unitTypeKVNX,
 		val:      val,
 		deadline: deadline,
 	}
@@ -47,11 +63,11 @@ func newListRBTreeCacheNode(key string) *rbTreeCacheNode {
 	}
 }
 
-func newSetRBTreeCacheNode(key string) *rbTreeCacheNode {
+func newSetRBTreeCacheNode(key string, initSize int) *rbTreeCacheNode {
 	return &rbTreeCacheNode{
 		key:      key,
 		unitType: unitTypeSet,
-		val:      set.NewMapSet[any](8),
+		val:      set.NewMapSet[any](initSize),
 	}
 }
 
@@ -59,7 +75,7 @@ func newIntRBTreeCacheNode(key string) *rbTreeCacheNode {
 	return &rbTreeCacheNode{
 		key:      key,
 		unitType: unitTypeNum,
-		val:      0,
+		val:      int64(0),
 	}
 }
 
@@ -79,9 +95,7 @@ func comparatorRBTreeCacheNode() ekit.Comparator[string] {
 // beforeDeadline 检查一下传入的时间是不是在缓存有效时间之前
 func (node *rbTreeCacheNode) beforeDeadline(checkTime time.Time) bool {
 	if node.deadline.IsZero() {
-		// 如果没有设置过期时间，那就不会过期
-		return true
+		return true // 如果没有设置过期时间，那就不会过期
 	}
-	// 否则比较一下校验时间是不是在过期时间之前
-	return checkTime.Before(node.deadline)
+	return checkTime.Before(node.deadline) // 否则比较一下校验时间是不是在过期时间之前
 }

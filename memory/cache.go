@@ -26,6 +26,10 @@ type Cache struct {
 	client ecache.Cache
 }
 
+func NewCache(client ecache.Cache) *Cache {
+	return &Cache{client: client}
+}
+
 func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
 	return c.client.Set(ctx, key, val, expiration)
 }

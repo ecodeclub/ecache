@@ -12,29 +12,29 @@ var (
 // Priority 如果传进来的元素没有实现了该接口，则使用默认权重
 type Priority interface {
 	// GetPriorityWeight 获取元素的优先级
-	GetPriorityWeight() int
+	GetPriorityWeight() int64
 }
 
 // CachePriority 缓存的优先级数据
 type CachePriority struct {
 	priorityData      *heap.MinHeap[*priorityNode] //优先级数据
-	priorityWeightMap map[int]*priorityNode        //方便快速找某个权重值的结点
+	priorityWeightMap map[int64]*priorityNode      //方便快速找某个权重值的结点
 }
 
 func newCachePriority(initSize int) *CachePriority {
-	//这里的error只会是ErrMinHeapComparatorIsNull，传了compare就不可能出现的
 	priorityData, _ := heap.NewMinHeap[*priorityNode](comparatorPriorityNode(), initSize)
+	//这里的error只会是ErrMinHeapComparatorIsNull，传了compare就不可能出现的，直接忽略
 	return &CachePriority{
 		priorityData:      priorityData,
-		priorityWeightMap: make(map[int]*priorityNode),
+		priorityWeightMap: make(map[int64]*priorityNode),
 	}
 }
 
 // SetCacheNodePriority 设置缓存结点的优先级数据
-func (cp *CachePriority) SetCacheNodePriority(priorityWeight int, node *rbTreeCacheNode) {
+func (cp *CachePriority) SetCacheNodePriority(priorityWeight int64, node *rbTreeCacheNode) {
 	priorityUnit, priorityErr := cp.findPriorityNodeByPriorityWeight(priorityWeight)
 	//这里的error只会是ErrPriorityUnitNotExist
-	if priorityErr == ErrPriorityUnitNotExist {
+	if priorityErr != nil {
 		// 如果优先级结点不存在就新建一个
 		priorityUnit = newPriorityNode(priorityWeight)
 		cp.priorityData.Add(priorityUnit)
@@ -47,6 +47,9 @@ func (cp *CachePriority) SetCacheNodePriority(priorityWeight int, node *rbTreeCa
 
 // DeleteCacheNodePriority 移除缓存结点的优先级数据
 func (cp *CachePriority) DeleteCacheNodePriority(node *rbTreeCacheNode) {
+	if node.priorityUnit == nil {
+		return //理论上缓存结点和优先级结点是对应上的，不应该出现走这里的情况。
+	}
 	priorityUnit := node.priorityUnit
 	node.priorityUnit = nil
 	delete(priorityUnit.cacheData, node.key)
@@ -55,7 +58,7 @@ func (cp *CachePriority) DeleteCacheNodePriority(node *rbTreeCacheNode) {
 }
 
 // 用优先级权重查找优先级结点
-func (cp *CachePriority) findPriorityNodeByPriorityWeight(priorityWeight int) (*priorityNode, error) {
+func (cp *CachePriority) findPriorityNodeByPriorityWeight(priorityWeight int64) (*priorityNode, error) {
 	if val, ok := cp.priorityWeightMap[priorityWeight]; ok {
 		return val, nil
 	} else {
