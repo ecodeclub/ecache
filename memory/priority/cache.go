@@ -279,10 +279,10 @@ type Node struct {
 	idx int
 }
 
-func (n Node) Index() int {
+func (n *Node) Index() int {
 	return n.idx
 }
 
-func (n Node) SetIndex(idx int) {
+func (n *Node) SetIndex(idx int) {
 	n.idx = idx
 }
