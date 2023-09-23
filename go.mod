@@ -9,10 +9,6 @@ require (
 	go.uber.org/mock v0.2.0
 )
 
-replace (
-	github.com/ecodeclub/ekit v0.0.7 => D:\workspace\ekit
-)
-
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
