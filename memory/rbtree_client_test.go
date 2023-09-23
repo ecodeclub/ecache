@@ -110,7 +110,8 @@ func TestNewRBTreeClient(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "传错的优先级类型",
+			//错的优先级类型
+			name: "wrong priority type",
 			startClient: func() (*RBTreeClient, error) {
 				client, err := NewRBTreeClient(SetPriorityType(0))
 				return client, err
@@ -126,7 +127,7 @@ func TestNewRBTreeClient(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientSet(t *testing.T) {
+func TestRBTreeClient_Set(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -137,7 +138,8 @@ func TestRBTreeClientSet(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，新增",
+			//0缓存结点，新增
+			name: "0cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -153,7 +155,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "1缓存结点，新增",
+			//1缓存结点，新增1
+			name: "1cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -173,7 +176,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "1缓存结点，新增覆盖",
+			//1缓存结点，新增1覆盖
+			name: "1cache,add1,cover",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -199,7 +203,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "1缓存结点，新增覆盖，理论上不应该出现这种情况，凑一下测试覆盖率",
+			//1缓存结点，新增1覆盖，理论上不应该出现这种情况，凑一下测试覆盖率
+			name: "1cache,add1,cover,should not happen,just for coverage",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -226,7 +231,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "2缓存容量，1缓存结点，新增不触发淘汰",
+			//2缓存容量，1缓存结点，新增1不触发淘汰
+			name: "2limit,1cache,add1,not evict",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(2))
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -246,7 +252,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "1缓存容量，1缓存结点，权重模式正序，新增触发淘汰",
+			//1缓存容量，1缓存结点，权重模式正序，新增触发淘汰
+			name: "1limit,1cache,weight asc,add1,evict",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(1))
 
@@ -272,7 +279,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "2缓存容量，2缓存结点，权重不一样，权重模式正序，新增触发淘汰",
+			//2缓存容量，2缓存结点，权重不一样，权重模式正序，新增触发淘汰
+			name: "2limit,2cache,diff weight,weight asc,add1,evict",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(2))
 
@@ -308,7 +316,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "2缓存容量，2缓存结点，权重不一样，默认权重更大，权重模式正序，新增触发淘汰",
+			//2缓存容量，2缓存结点，权重不一样，默认权重更大，权重模式正序，新增触发淘汰
+			name: "2limit,2cache,diff weight,default weight bigger,weight asc,add1,evict",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(2), SetDefaultPriorityWeight(3))
 
@@ -344,7 +353,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "2缓存容量，2缓存结点，权重不一样，权重模式倒序，新增触发淘汰",
+			//2缓存容量，2缓存结点，权重不一样，权重模式倒序，新增触发淘汰
+			name: "2limit,2cache,diff weight,weight desc,add1,evict",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(2), SetOrderByASC(false))
 
@@ -380,7 +390,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "1缓存容量，1缓存结点，lfu模式，新增触发淘汰，测试淘汰时，堆顶为空的情况",
+			//1缓存容量，1缓存结点，lfu模式，新增触发淘汰，测试淘汰时，堆顶为空的情况
+			name: "1limit,1cache,lfu,add1,evict,heap top nil",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(1), SetPriorityType(PriorityTypeLFU))
 
@@ -408,7 +419,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			},
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "node type error",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -426,7 +438,8 @@ func TestRBTreeClientSet(t *testing.T) {
 			wantErr: ErrOnlyKVCanSet,
 		},
 		{
-			name: "1缓存容量，1缓存结点，新增触发淘汰，堆顶为空的情况，理论上不应该出现这种情况，凑一下测试覆盖率",
+			//1缓存容量，1缓存结点，新增触发淘汰，堆顶为空的情况，理论上不应该出现这种情况，凑一下测试覆盖率
+			name: "1limit,1cache,add1,evict,heap top nil,should not happen,just for coverage",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(1))
 
@@ -473,7 +486,7 @@ func TestRBTreeClientSet(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientSetNX(t *testing.T) {
+func TestRBTreeClient_SetNX(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -485,7 +498,8 @@ func TestRBTreeClientSetNX(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，新增",
+			//0缓存结点，新增1
+			name: "0cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -501,7 +515,8 @@ func TestRBTreeClientSetNX(t *testing.T) {
 			wantBool: true,
 		},
 		{
-			name: "1缓存结点，新增不冲突",
+			//1缓存结点，新增1不冲突
+			name: "1cache,add1,not conflict",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVNXRBTreeCacheNode("key1", "value1", time.Minute))
@@ -519,7 +534,8 @@ func TestRBTreeClientSetNX(t *testing.T) {
 			wantBool: true,
 		},
 		{
-			name: "1缓存结点，覆盖自己的",
+			//1缓存结点，新增1冲突，覆盖自己
+			name: "1cache,add1,conflict,self",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVNXRBTreeCacheNode("key1", "value1", time.Minute))
@@ -536,7 +552,8 @@ func TestRBTreeClientSetNX(t *testing.T) {
 			wantBool: true,
 		},
 		{
-			name: "1缓存结点，新增冲突但是过期",
+			//1缓存结点，新增1冲突，但是过期
+			name: "1cache,add1,conflict,expired",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVNXRBTreeCacheNode("key1", "value1", -time.Minute))
@@ -553,7 +570,8 @@ func TestRBTreeClientSetNX(t *testing.T) {
 			wantBool: true,
 		},
 		{
-			name: "1缓存结点，新增冲突返回失败",
+			//1缓存结点，新增1冲突，返回失败
+			name: "1cache,add1,conflict,failed",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVNXRBTreeCacheNode("key1", "value1", time.Minute))
@@ -570,7 +588,8 @@ func TestRBTreeClientSetNX(t *testing.T) {
 			wantBool: false,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -603,7 +622,7 @@ func TestRBTreeClientSetNX(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientGet(t *testing.T) {
+func TestRBTreeClient_Get(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -613,7 +632,8 @@ func TestRBTreeClientGet(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，查询未命中",
+			//0缓存结点，查询未命中
+			name: "0cache,get miss",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -626,7 +646,8 @@ func TestRBTreeClientGet(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "1缓存结点，查询未命中",
+			//1缓存结点，查询未命中
+			name: "1cached,get miss",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -653,7 +674,8 @@ func TestRBTreeClientGet(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "1缓存结点，查询命中",
+			//1缓存结点，查询命中
+			name: "1cache,get hit",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -680,7 +702,8 @@ func TestRBTreeClientGet(t *testing.T) {
 			wantVal: "value1",
 		},
 		{
-			name: "1缓存结点，不会过期，查询命中",
+			//1缓存结点，查询命中，不会过期
+			name: "1cache,not expire,get hit",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -705,7 +728,8 @@ func TestRBTreeClientGet(t *testing.T) {
 			wantVal: "value1",
 		},
 		{
-			name: "1缓存结点，查询命中但是过期",
+			//1缓存结点，查询命中，但是过期
+			name: "1cache,expire,get miss",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -724,7 +748,8 @@ func TestRBTreeClientGet(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -755,7 +780,7 @@ func TestRBTreeClientGet(t *testing.T) {
 	}
 }
 
-func TestDoubleCheckInGet(t *testing.T) {
+func TestRBTreeClient_doubleCheckInGet(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -763,7 +788,8 @@ func TestDoubleCheckInGet(t *testing.T) {
 		wantClient  func() *RBTreeClient
 	}{
 		{
-			name: "key没有被别的线程删除",
+			//key没有被别的线程删除
+			name: "key not deleted by other thread",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -781,7 +807,8 @@ func TestDoubleCheckInGet(t *testing.T) {
 			},
 		},
 		{
-			name: "key已经被别的线程删除了",
+			//key已经被别的线程删除了
+			name: "key deleted by other thread",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -813,7 +840,8 @@ func TestLRU(t *testing.T) {
 		wantMap1    map[string]string
 	}{
 		{
-			name: "1缓存结点",
+			//1缓存结点
+			name: "1cache",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeLRU))
 
@@ -828,7 +856,8 @@ func TestLRU(t *testing.T) {
 			wantMap1: map[string]string{"key1": "key1"},
 		},
 		{
-			name: "2缓存结点，key1最近访问，key2最久未访问",
+			//2缓存结点，key1最近访问，key2最久未访问
+			name: "2cache,get key1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeLRU))
 
@@ -849,7 +878,8 @@ func TestLRU(t *testing.T) {
 			wantMap1: map[string]string{"key1": "key1"},
 		},
 		{
-			name: "2缓存结点，key1最近访问，key2最久未访问，但是没设置LRU",
+			//2缓存结点，key1最近访问，key2最久未访问，但是没设置LRU
+			name: "2cache,get key1,but not LRU",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -920,7 +950,8 @@ func TestLFU(t *testing.T) {
 		wantMap1    map[string]string
 	}{
 		{
-			name: "1缓存结点，key1访问0，访问key1",
+			//1缓存结点，key1访问0，访问key1
+			name: "1cache,key1 0call,get key1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeLFU))
 
@@ -936,7 +967,8 @@ func TestLFU(t *testing.T) {
 			wantMap1: map[string]string{"key1": "key1"},
 		},
 		{
-			name: "2缓存结点，key1访问0，key2访问0，访问key1",
+			//2缓存结点，key1访问0，key2访问0，访问key1
+			name: "2cache,key1 0call,key2 0call,get key1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeLFU))
 
@@ -957,7 +989,8 @@ func TestLFU(t *testing.T) {
 			wantMap1: map[string]string{"key1": "key1"},
 		},
 		{
-			name: "2缓存结点，key1访问0，key2访问0，访问key1，但是没设置LFU",
+			//2缓存结点，key1访问0，key2访问0，访问key1，但是没设置LFU
+			name: "2cache,key1 0call,key2 0call,get key1,but not LFU",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -978,7 +1011,8 @@ func TestLFU(t *testing.T) {
 			wantMap1: map[string]string{},
 		},
 		{
-			name: "2缓存结点，key1访问1，key2访问1，访问key1",
+			//2缓存结点，key1访问1，key2访问1，访问key1
+			name: "2cache,key1 1call,key2 1call,get key1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeLFU))
 
@@ -1053,7 +1087,8 @@ func TestMemory(t *testing.T) {
 		wantMap1    map[string]string
 	}{
 		{
-			name: "0缓存结点，新增",
+			//0缓存结点，新增1
+			name: "0cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeMemory))
 				return client
@@ -1064,7 +1099,8 @@ func TestMemory(t *testing.T) {
 			wantMap1: map[string]string{},
 		},
 		{
-			name: "1缓存结点，内存模式正序，新增一个一样的",
+			//1缓存结点，内存模式正序，新增一个一样的
+			name: "1cache,memory asc,add1 same",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeMemory))
 
@@ -1080,7 +1116,8 @@ func TestMemory(t *testing.T) {
 			wantMap1: map[string]string{},
 		},
 		{
-			name: "1缓存结点，内存模式正序，新增一个更大的",
+			//1缓存结点，内存模式正序，新增一个更大的
+			name: "1cache,memory asc,add1 bigger",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeMemory))
 
@@ -1096,7 +1133,8 @@ func TestMemory(t *testing.T) {
 			wantMap1: map[string]string{"key2": "key2"},
 		},
 		{
-			name: "1缓存结点，内存模式正序，新增一个更小的",
+			//1缓存结点，内存模式正序，新增一个更小的
+			name: "1cache,memory asc,add1 smaller",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeMemory))
 
@@ -1112,7 +1150,8 @@ func TestMemory(t *testing.T) {
 			wantMap1: map[string]string{"key2": "key2"},
 		},
 		{
-			name: "1缓存结点，内存模式倒序，新增一个更大的",
+			//1缓存结点，内存模式倒序，新增一个更大的
+			name: "1cache,memory desc,add1 bigger",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeMemory), SetOrderByASC(false))
 
@@ -1128,7 +1167,8 @@ func TestMemory(t *testing.T) {
 			wantMap1: map[string]string{"key1": "key1"},
 		},
 		{
-			name: "1缓存结点，内存模式倒序，新增一个更小的",
+			//1缓存结点，内存模式倒序，新增一个更小的
+			name: "1cache,memory desc,add1 smaller",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeMemory), SetOrderByASC(false))
 
@@ -1195,7 +1235,8 @@ func TestWeight(t *testing.T) {
 		wantMap1    map[string]string
 	}{
 		{
-			name: "权重超过最大值",
+			//权重超过最大值
+			name: "weight bigger than max",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeWeight))
 
@@ -1211,7 +1252,8 @@ func TestWeight(t *testing.T) {
 			wantMap1: map[string]string{},
 		},
 		{
-			name: "权重超过最小值",
+			//权重超过最小值
+			name: "weight smaller than min",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetPriorityType(PriorityTypeWeight))
 
@@ -1268,7 +1310,7 @@ func TestWeight(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientGetSet(t *testing.T) {
+func TestRBTreeClient_GetSet(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -1279,7 +1321,8 @@ func TestRBTreeClientGetSet(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，查询未命中",
+			//0缓存结点，查询未命中
+			name: "0cache,get miss,add",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -1295,7 +1338,8 @@ func TestRBTreeClientGetSet(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "1缓存结点，查询未命中",
+			//1缓存结点，查询未命中
+			name: "1cache,get miss,add",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -1315,7 +1359,8 @@ func TestRBTreeClientGetSet(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "1缓存结点，查询命中",
+			//1缓存结点，查询命中
+			name: "1cache,get hit,set",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1337,7 +1382,8 @@ func TestRBTreeClientGetSet(t *testing.T) {
 			wantVal: "value1",
 		},
 		{
-			name: "1缓存结点，查询命中但是过期",
+			//1缓存结点，查询命中但是过期
+			name: "1cache,get hit,expired,set",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1363,7 +1409,8 @@ func TestRBTreeClientGetSet(t *testing.T) {
 			wantVal: "value1",
 		},
 		{
-			name: "1缓存容量，1缓存结点，新增触发淘汰",
+			//1缓存容量，1缓存结点，新增触发淘汰
+			name: "1limit,1cache,get miss,add",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient(SetCacheLimit(1))
 
@@ -1385,7 +1432,8 @@ func TestRBTreeClientGetSet(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1418,7 +1466,7 @@ func TestRBTreeClientGetSet(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientLPUSH(t *testing.T) {
+func TestRBTreeClient_LPush(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -1429,7 +1477,8 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "缓存容量0，新增1",
+			//0缓存容量，新增1
+			name: "0cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -1452,7 +1501,8 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			wantNum: 1,
 		},
 		{
-			name: "缓存容量0，新增2",
+			//0缓存容量，新增2
+			name: "0cache,add2",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -1476,7 +1526,8 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			wantNum: 2,
 		},
 		{
-			name: "缓存容量1，新增1",
+			//1缓存容量，新增1
+			name: "1cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1509,7 +1560,8 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			wantNum: 1,
 		},
 		{
-			name: "缓存容量1，新增1，创建新结点",
+			//1缓存容量，新增1，创建新结点
+			name: "1cache,add1,new node",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1549,7 +1601,8 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 			wantNum: 1,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -1579,7 +1632,7 @@ func TestRBTreeClientLPUSH(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientLPop(t *testing.T) {
+func TestRBTreeClient_LPop(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -1589,7 +1642,8 @@ func TestRBTreeClientLPop(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "1缓存结点，未命中",
+			//1缓存结点，未命中
+			name: "1cache,lpop miss",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -1602,7 +1656,8 @@ func TestRBTreeClientLPop(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "1缓存结点，命中",
+			//1缓存结点，命中
+			name: "1cache,lpop hit",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1624,7 +1679,8 @@ func TestRBTreeClientLPop(t *testing.T) {
 			wantVal: "value1",
 		},
 		{
-			name: "1缓存结点，2个元素，命中",
+			//1缓存结点，2个元素，命中，剩一个
+			name: "1cache,2elements,lpop hit,1left",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1656,7 +1712,8 @@ func TestRBTreeClientLPop(t *testing.T) {
 			wantVal: "value1",
 		},
 		{
-			name: "1缓存结点，各1个元素，命中",
+			//1缓存结点，各1个元素，命中
+			name: "1cache,each 1elements,lpop hit",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1695,7 +1752,8 @@ func TestRBTreeClientLPop(t *testing.T) {
 			wantVal: "value1",
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -1725,7 +1783,7 @@ func TestRBTreeClientLPop(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientSAdd(t *testing.T) {
+func TestRBTreeClient_SAdd(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -1736,7 +1794,8 @@ func TestRBTreeClientSAdd(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，新增1元素",
+			//0缓存结点，新增1元素
+			name: "0cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -1759,7 +1818,8 @@ func TestRBTreeClientSAdd(t *testing.T) {
 			wantRet: 1,
 		},
 		{
-			name: "0缓存结点，新增2元素",
+			//0缓存结点，新增2元素
+			name: "0cache,add2",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -1783,7 +1843,8 @@ func TestRBTreeClientSAdd(t *testing.T) {
 			wantRet: 2,
 		},
 		{
-			name: "1缓存结点，1元素，新增1元素，不重复",
+			//1缓存结点，1元素，新增1元素，不重复
+			name: "1cache,1element,add1,not repeat",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1816,7 +1877,8 @@ func TestRBTreeClientSAdd(t *testing.T) {
 			wantRet: 1,
 		},
 		{
-			name: "1缓存结点，1元素，新增1元素，重复",
+			//1缓存结点，1元素，新增1元素，重复
+			name: "1cache,1element,add1,repeat",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1848,7 +1910,8 @@ func TestRBTreeClientSAdd(t *testing.T) {
 			wantRet: 0,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -1880,7 +1943,7 @@ func TestRBTreeClientSAdd(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientSRem(t *testing.T) {
+func TestRBTreeClient_SRem(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -1891,7 +1954,8 @@ func TestRBTreeClientSRem(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，删除1元素，报错",
+			//0缓存结点，删除1元素，报错
+			name: "0cache,delete1,err",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -1906,7 +1970,8 @@ func TestRBTreeClientSRem(t *testing.T) {
 			wantErr: errs.ErrKeyNotExist,
 		},
 		{
-			name: "1缓存结点，1元素，删除1元素，命中",
+			//1缓存结点，1元素，删除1元素，命中
+			name: "1cache,1element,delete1,hit",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1929,7 +1994,8 @@ func TestRBTreeClientSRem(t *testing.T) {
 			wantRet: 1,
 		},
 		{
-			name: "1缓存结点，1元素，删除1元素，未命中",
+			//1缓存结点，1元素，删除1元素，未命中
+			name: "1cache,1element,delete1,miss",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1961,7 +2027,8 @@ func TestRBTreeClientSRem(t *testing.T) {
 			wantRet: 0,
 		},
 		{
-			name: "1缓存结点，2元素，删除1元素，命中",
+			//1缓存结点，2元素，删除1元素，命中
+			name: "1cache,2element,delete1,hit",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -1994,7 +2061,8 @@ func TestRBTreeClientSRem(t *testing.T) {
 			wantRet: 1,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -2026,7 +2094,7 @@ func TestRBTreeClientSRem(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientIncrBy(t *testing.T) {
+func TestRBTreeClient_IncrBy(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -2037,7 +2105,8 @@ func TestRBTreeClientIncrBy(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，加1",
+			//0缓存结点，加1
+			name: "0cache,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -2058,7 +2127,8 @@ func TestRBTreeClientIncrBy(t *testing.T) {
 			wantRet: 1,
 		},
 		{
-			name: "1缓存结点，缓存值1，加1",
+			//1缓存结点，缓存值1，加1
+			name: "1cache,num is 1,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -2086,7 +2156,8 @@ func TestRBTreeClientIncrBy(t *testing.T) {
 			wantRet: 2,
 		},
 		{
-			name: "1缓存结点，缓存值1，加2",
+			//1缓存结点，缓存值1，加2
+			name: "1cache,num is 1,add2",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -2114,7 +2185,8 @@ func TestRBTreeClientIncrBy(t *testing.T) {
 			wantRet: 3,
 		},
 		{
-			name: "1缓存结点，缓存值各1，加1",
+			//2缓存结点，缓存值各1，加1
+			name: "2cache,each num is 1,add1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -2154,7 +2226,8 @@ func TestRBTreeClientIncrBy(t *testing.T) {
 			wantRet: 2,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
@@ -2185,7 +2258,7 @@ func TestRBTreeClientIncrBy(t *testing.T) {
 	}
 }
 
-func TestRBTreeClientDecrBy(t *testing.T) {
+func TestRBTreeClient_DecrBy(t *testing.T) {
 	testCases := []struct {
 		name        string
 		startClient func() *RBTreeClient
@@ -2196,7 +2269,8 @@ func TestRBTreeClientDecrBy(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "0缓存结点，减1",
+			//0缓存结点，减1
+			name: "0cache,decr1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				return client
@@ -2217,7 +2291,8 @@ func TestRBTreeClientDecrBy(t *testing.T) {
 			wantRet: -1,
 		},
 		{
-			name: "1缓存结点，缓存值1，减1",
+			//1缓存结点，缓存值1，减1
+			name: "1cache,num is 1,decr1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -2245,7 +2320,8 @@ func TestRBTreeClientDecrBy(t *testing.T) {
 			wantRet: 0,
 		},
 		{
-			name: "1缓存结点，缓存值1，减2",
+			//1缓存结点，缓存值1，减2
+			name: "1cache,num is 1,decr2",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -2273,7 +2349,8 @@ func TestRBTreeClientDecrBy(t *testing.T) {
 			wantRet: -1,
 		},
 		{
-			name: "1缓存结点，缓存值各1，减1",
+			//2缓存结点，缓存值各1，减1
+			name: "2cache,each num is 1,decr1",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 
@@ -2313,7 +2390,8 @@ func TestRBTreeClientDecrBy(t *testing.T) {
 			wantRet: 0,
 		},
 		{
-			name: "结点类型错误",
+			//结点类型错误
+			name: "wrong type",
 			startClient: func() *RBTreeClient {
 				client, _ := NewRBTreeClient()
 				_ = client.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))

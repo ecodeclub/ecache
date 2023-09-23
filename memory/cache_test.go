@@ -2,13 +2,15 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
 	"time"
 )
 
-func TestSet(t *testing.T) {
+func TestCache_Set(t *testing.T) {
 	testCases := []struct {
 		name       string
 		cache      func() *Cache
@@ -18,7 +20,7 @@ func TestSet(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -37,7 +39,30 @@ func TestSet(t *testing.T) {
 	}
 }
 
-func TestSetNX(t *testing.T) {
+func TestCache_Set2(t *testing.T) {
+	startClient, _ := NewRBTreeClient(SetCacheLimit(100))
+	cache := NewCache(startClient)
+	key := "key"
+	val := "val"
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 10000; i++ {
+		wg.Add(1)
+		j := i
+		go func() {
+			tempKey := fmt.Sprintf("%s%d", key, j)
+			tempVal := fmt.Sprintf("%s%d", val, j)
+			_ = cache.Set(context.Background(), tempKey, tempVal, time.Minute)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	endClient, _ := cache.client.(*RBTreeClient)
+	fmt.Println(endClient.cacheNum)
+}
+
+func TestCache_SetNX(t *testing.T) {
 	testCases := []struct {
 		name       string
 		cache      func() *Cache
@@ -47,7 +72,7 @@ func TestSetNX(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -66,7 +91,7 @@ func TestSetNX(t *testing.T) {
 	}
 }
 
-func TestGet(t *testing.T) {
+func TestCache_Get(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -74,7 +99,7 @@ func TestGet(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -92,7 +117,7 @@ func TestGet(t *testing.T) {
 	}
 }
 
-func TestGetSet(t *testing.T) {
+func TestCache_GetSet(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -101,7 +126,7 @@ func TestGetSet(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -120,7 +145,7 @@ func TestGetSet(t *testing.T) {
 	}
 }
 
-func TestLPush(t *testing.T) {
+func TestCache_LPush(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -130,7 +155,7 @@ func TestLPush(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -150,7 +175,7 @@ func TestLPush(t *testing.T) {
 	}
 }
 
-func TestLPop(t *testing.T) {
+func TestCache_LPop(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -159,7 +184,7 @@ func TestLPop(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -177,7 +202,7 @@ func TestLPop(t *testing.T) {
 	}
 }
 
-func TestSAdd(t *testing.T) {
+func TestCache_SAdd(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -187,7 +212,7 @@ func TestSAdd(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -207,7 +232,7 @@ func TestSAdd(t *testing.T) {
 	}
 }
 
-func TestSRem(t *testing.T) {
+func TestCache_SRem(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -216,7 +241,7 @@ func TestSRem(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -234,7 +259,7 @@ func TestSRem(t *testing.T) {
 	}
 }
 
-func TestIncrBy(t *testing.T) {
+func TestCache_IncrBy(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -244,7 +269,7 @@ func TestIncrBy(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
@@ -264,7 +289,7 @@ func TestIncrBy(t *testing.T) {
 	}
 }
 
-func TestDecrBy(t *testing.T) {
+func TestCache_DecrBy(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cache   func() *Cache
@@ -274,7 +299,7 @@ func TestDecrBy(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "覆盖测试，不报错就行了",
+			name: "no err is ok",
 			cache: func() *Cache {
 				client, _ := NewRBTreeClient()
 				return NewCache(client)
