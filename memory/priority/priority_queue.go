@@ -95,27 +95,6 @@ func (q *QueueWithHeap[T]) Remove(ctx context.Context, t *T) error {
 	return nil
 }
 
-//	          0
-//	     1          2
-//	  3     4    5     6
-//	7   8  9  10
-//
-// root -> left(2n+1)  root -> right(2n+2)  left/right -> root(n-1/2)
-// 堆化应该从最后一个有子节点的节点开始堆化(len(heap)-2/2)
-func (q *QueueWithHeap[T]) heapify() {
-	n := q.len
-
-	if n <= 1 {
-		return
-	}
-
-	cur := n - 2/2
-
-	for i := cur; i >= 0; i-- {
-		q.heapifyDown(cur)
-	}
-}
-
 // heapifyDown 从上往下进行堆化
 func (q *QueueWithHeap[T]) heapifyDown(cur int) {
 	n := q.len
