@@ -8,11 +8,11 @@ import (
 func compareTwoCachePriority(src *CachePriority, dst *CachePriority) bool {
 	//如果两个小根堆中结点数量一样，堆顶结点一样，堆顶的权重和缓存数据一样，
 	//那么就姑且认为两个小根堆是一样的
-	if src.priorityData.Size() != dst.priorityData.Size() {
+	if src.priorityData.Len() != dst.priorityData.Len() {
 		return false
 	}
-	srcTop, _ := src.priorityData.GetTop()
-	dstTop, _ := dst.priorityData.GetTop()
+	srcTop, _ := src.priorityData.Peek()
+	dstTop, _ := dst.priorityData.Peek()
 	if srcTop.priorityWeight != dstTop.priorityWeight {
 		return false
 	}
@@ -46,7 +46,7 @@ func TestCachePriority_SetCacheNodePriority(t *testing.T) {
 
 				node := newPriorityNode(1)
 				node.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node)
+				_ = cachePriority.priorityData.Enqueue(node)
 				cachePriority.priorityWeightMap[1] = node
 
 				return cachePriority
@@ -60,7 +60,7 @@ func TestCachePriority_SetCacheNodePriority(t *testing.T) {
 				cachePriority := newCachePriority(minHeapInitSize)
 				node := newPriorityNode(1)
 				node.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node)
+				_ = cachePriority.priorityData.Enqueue(node)
 				cachePriority.priorityWeightMap[1] = node
 
 				return cachePriority
@@ -73,7 +73,7 @@ func TestCachePriority_SetCacheNodePriority(t *testing.T) {
 				node := newPriorityNode(1)
 				node.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
 				node.cacheData["key2"] = &rbTreeCacheNode{key: "key2"}
-				cachePriority.priorityData.Add(node)
+				_ = cachePriority.priorityData.Enqueue(node)
 				cachePriority.priorityWeightMap[1] = node
 
 				return cachePriority
@@ -87,7 +87,7 @@ func TestCachePriority_SetCacheNodePriority(t *testing.T) {
 
 				node1 := newPriorityNode(1)
 				node1.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node1)
+				_ = cachePriority.priorityData.Enqueue(node1)
 				cachePriority.priorityWeightMap[1] = node1
 
 				return cachePriority
@@ -99,12 +99,12 @@ func TestCachePriority_SetCacheNodePriority(t *testing.T) {
 
 				node1 := newPriorityNode(1)
 				node1.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node1)
+				_ = cachePriority.priorityData.Enqueue(node1)
 				cachePriority.priorityWeightMap[1] = node1
 
 				node2 := newPriorityNode(2)
 				node2.cacheData["key2"] = &rbTreeCacheNode{key: "key2"}
-				cachePriority.priorityData.Add(node2)
+				_ = cachePriority.priorityData.Enqueue(node2)
 				cachePriority.priorityWeightMap[2] = node2
 
 				return cachePriority
@@ -143,7 +143,7 @@ func TestCachePriority_DeleteCacheNodePriority(t *testing.T) {
 				cachePriority := newCachePriority(minHeapInitSize)
 
 				node := newPriorityNode(1)
-				cachePriority.priorityData.Add(node)
+				_ = cachePriority.priorityData.Enqueue(node)
 				cachePriority.priorityWeightMap[1] = node
 
 				return cachePriority
@@ -157,7 +157,7 @@ func TestCachePriority_DeleteCacheNodePriority(t *testing.T) {
 
 				node := newPriorityNode(1)
 				node.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node)
+				_ = cachePriority.priorityData.Enqueue(node)
 				cachePriority.priorityWeightMap[1] = node
 
 				return cachePriority
@@ -170,7 +170,7 @@ func TestCachePriority_DeleteCacheNodePriority(t *testing.T) {
 
 				node := newPriorityNode(1)
 				node.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node)
+				_ = cachePriority.priorityData.Enqueue(node)
 				cachePriority.priorityWeightMap[1] = node
 
 				return cachePriority
@@ -184,7 +184,7 @@ func TestCachePriority_DeleteCacheNodePriority(t *testing.T) {
 
 				node := newPriorityNode(1)
 				node.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node)
+				_ = cachePriority.priorityData.Enqueue(node)
 				cachePriority.priorityWeightMap[1] = node
 
 				return cachePriority
@@ -197,11 +197,11 @@ func TestCachePriority_DeleteCacheNodePriority(t *testing.T) {
 
 				node1 := newPriorityNode(1)
 				node1.cacheData["key1"] = &rbTreeCacheNode{key: "key1"}
-				cachePriority.priorityData.Add(node1)
+				_ = cachePriority.priorityData.Enqueue(node1)
 				cachePriority.priorityWeightMap[1] = node1
 
 				node2 := newPriorityNode(2)
-				cachePriority.priorityData.Add(node2)
+				_ = cachePriority.priorityData.Enqueue(node2)
 				cachePriority.priorityWeightMap[2] = node2
 
 				return cachePriority

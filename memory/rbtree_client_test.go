@@ -907,7 +907,7 @@ func TestLRU(t *testing.T) {
 
 			//判断一下最前面两个结点是否符合预期
 
-			top0, _ := startClient.priorityData.priorityData.ExtractTop()
+			top0, _ := startClient.priorityData.priorityData.Dequeue()
 			keyMap0 := make(map[string]string)
 			for key := range top0.cacheData {
 				keyMap0[key] = key
@@ -921,7 +921,7 @@ func TestLRU(t *testing.T) {
 			assert.Equal(t, true, len(keyMap0) == len(tc.wantMap0))
 			assert.Equal(t, true, result0)
 
-			top1, err1 := startClient.priorityData.priorityData.ExtractTop()
+			top1, err1 := startClient.priorityData.priorityData.Dequeue()
 			if err1 != nil {
 				return //如果没有第二个结点，就不用判断了
 			}
@@ -1043,7 +1043,7 @@ func TestLFU(t *testing.T) {
 
 			//判断一下最前面两个结点是否符合预期
 
-			top0, _ := startClient.priorityData.priorityData.ExtractTop()
+			top0, _ := startClient.priorityData.priorityData.Dequeue()
 			keyMap0 := make(map[string]string)
 			for key := range top0.cacheData {
 				keyMap0[key] = key
@@ -1057,7 +1057,7 @@ func TestLFU(t *testing.T) {
 			assert.Equal(t, true, len(keyMap0) == len(tc.wantMap0))
 			assert.Equal(t, true, result0)
 
-			top1, err1 := startClient.priorityData.priorityData.ExtractTop()
+			top1, err1 := startClient.priorityData.priorityData.Dequeue()
 			if err1 != nil {
 				return //如果没有第二个结点，就不用判断了
 			}
@@ -1191,7 +1191,7 @@ func TestMemory(t *testing.T) {
 
 			//判断一下最前面两个结点是否符合预期
 
-			top0, _ := startClient.priorityData.priorityData.ExtractTop()
+			top0, _ := startClient.priorityData.priorityData.Dequeue()
 			keyMap0 := make(map[string]string)
 			for key := range top0.cacheData {
 				keyMap0[key] = key
@@ -1205,7 +1205,7 @@ func TestMemory(t *testing.T) {
 			assert.Equal(t, true, len(keyMap0) == len(tc.wantMap0))
 			assert.Equal(t, true, result0)
 
-			top1, err1 := startClient.priorityData.priorityData.ExtractTop()
+			top1, err1 := startClient.priorityData.priorityData.Dequeue()
 			if err1 != nil {
 				return //如果没有第二个结点，就不用判断了
 			}
@@ -1276,7 +1276,7 @@ func TestWeight(t *testing.T) {
 
 			//判断一下最前面两个结点是否符合预期
 
-			top0, _ := startClient.priorityData.priorityData.ExtractTop()
+			top0, _ := startClient.priorityData.priorityData.Dequeue()
 			keyMap0 := make(map[string]string)
 			for key := range top0.cacheData {
 				keyMap0[key] = key
@@ -1290,7 +1290,7 @@ func TestWeight(t *testing.T) {
 			assert.Equal(t, true, len(keyMap0) == len(tc.wantMap0))
 			assert.Equal(t, true, result0)
 
-			top1, err1 := startClient.priorityData.priorityData.ExtractTop()
+			top1, err1 := startClient.priorityData.priorityData.Dequeue()
 			if err1 != nil {
 				return //如果没有第二个结点，就不用判断了
 			}

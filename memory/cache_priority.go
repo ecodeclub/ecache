@@ -2,11 +2,11 @@ package memory
 
 import (
 	"errors"
-	"github.com/ecodeclub/ekit/heap"
+	"github.com/ecodeclub/ekit/queue"
 )
 
 var (
-	ErrPriorityUnitNotExist = errors.New("ecache: 没有找到相应权重的结点")
+	errPriorityUnitNotExist = errors.New("ecache: 没有找到相应权重的结点")
 )
 
 // Priority 如果传进来的元素没有实现了该接口，则使用默认权重
@@ -17,13 +17,13 @@ type Priority interface {
 
 // CachePriority 缓存的优先级数据
 type CachePriority struct {
-	priorityData      *heap.MinHeap[*priorityNode] //优先级数据
-	priorityWeightMap map[int64]*priorityNode      //方便快速找某个权重值的结点
+	priorityData      *queue.PriorityQueue[*priorityNode] //优先级数据
+	priorityWeightMap map[int64]*priorityNode             //方便快速找某个权重值的结点
 }
 
 func newCachePriority(initSize int) *CachePriority {
-	priorityData, _ := heap.NewMinHeap[*priorityNode](comparatorPriorityNode(), initSize)
-	//这里的error只会是ErrMinHeapComparatorIsNull，传了compare就不可能出现的，直接忽略
+	priorityData := queue.NewPriorityQueue[*priorityNode](initSize, comparatorPriorityNode())
+	//这里的error传了compare就不可能出现的，直接忽略
 	return &CachePriority{
 		priorityData:      priorityData,
 		priorityWeightMap: make(map[int64]*priorityNode),
@@ -37,7 +37,7 @@ func (cp *CachePriority) SetCacheNodePriority(priorityWeight int64, node *rbTree
 	if priorityErr != nil {
 		// 如果优先级结点不存在就新建一个
 		priorityUnit = newPriorityNode(priorityWeight)
-		cp.priorityData.Add(priorityUnit)
+		_ = cp.priorityData.Enqueue(priorityUnit)
 		cp.priorityWeightMap[priorityWeight] = priorityUnit
 	}
 	//建立缓存节点和优先级结点的映射关系
@@ -62,6 +62,6 @@ func (cp *CachePriority) findPriorityNodeByPriorityWeight(priorityWeight int64) 
 	if val, ok := cp.priorityWeightMap[priorityWeight]; ok {
 		return val, nil
 	} else {
-		return nil, ErrPriorityUnitNotExist
+		return nil, errPriorityUnitNotExist
 	}
 }

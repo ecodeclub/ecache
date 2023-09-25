@@ -38,7 +38,7 @@ const (
 )
 
 var (
-	//这两个变量还没有想到好的办法，option模式感觉不好搞，如果外部没有传设置的option，怎么办呢
+	//这两个变量还没有想到好的办法，option模式感觉不好搞，如果外部没有传设置的option怎么办呢
 	minHeapInitSize = 8 //优先级数据，小根堆的初始大小
 	mapSetInitSize  = 8 //缓存set结点，set.MapSet的初始大小
 )
@@ -59,7 +59,7 @@ type RBTreeClient struct {
 
 func NewRBTreeClient(opts ...option.Option[RBTreeClient]) (*RBTreeClient, error) {
 	cacheData, _ := tree.NewRBTree[string, *rbTreeCacheNode](comparatorRBTreeCacheNode())
-	//这里的error只会是ErrRBTreeComparatorIsNull，传了compare就不可能出现的，直接忽略
+	//这里的error传了compare就不可能出现的，直接忽略
 
 	client := &RBTreeClient{
 		clientLock:            &sync.RWMutex{},
@@ -169,15 +169,14 @@ func (r *RBTreeClient) isFull() bool {
 
 // deleteByPriority 根据优先级淘汰数据
 func (r *RBTreeClient) deleteByPriority() bool {
-	topPriorityUnit, topErr := r.priorityData.priorityData.GetTop()
+	topPriorityUnit, topErr := r.priorityData.priorityData.Peek()
 	if topErr != nil {
-		//这里的err只会是ErrMinHeapIsEmpty，不用管。
-		//理论上缓存结点和优先级结点是对应上的，不应该出现走这里的情况，走这里铁有bug。
+		//这里的err不用管，理论上缓存结点和优先级结点是对应上的，不应该出现走这里的情况，走这里铁有bug。
 		return false
 	}
 	if len(topPriorityUnit.cacheData) <= 0 {
-		_, _ = r.priorityData.priorityData.ExtractTop() //如果堆结构顶部的结点没有缓存数据，那么就移除这个结点
-		return true                                     //直接回去，下一轮继续
+		_, _ = r.priorityData.priorityData.Dequeue() //如果堆结构顶部的结点没有缓存数据，那么就移除这个结点
+		return true                                  //直接回去，下一轮继续
 	}
 	for key, val := range topPriorityUnit.cacheData {
 		r.cacheData.Delete(key) //删除缓存数据
@@ -194,7 +193,7 @@ func (r *RBTreeClient) Set(ctx context.Context, key string, val any, expiration 
 
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据，执行新增
+		//如果有err，证明没找到缓存数据，执行新增
 		if r.isFull() {
 			//容量满了触发淘汰，这里不需要循环因为已经 lock 住了
 			needContinue := true
@@ -205,7 +204,7 @@ func (r *RBTreeClient) Set(ctx context.Context, key string, val any, expiration 
 		}
 
 		node = newKVRBTreeCacheNode(key, val, expiration)
-		_ = r.cacheData.Add(key, node) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 		r.cacheNum++
 
 		r.priorityData.SetCacheNodePriority(r.getValPriorityWeight(node), node) //设置新的优先级数据
@@ -235,9 +234,9 @@ func (r *RBTreeClient) SetNX(ctx context.Context, key string, val any, expiratio
 
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据，可以进行SetNX
+		//如果有err，证明没找到缓存数据，可以进行SetNX
 		node = newKVNXRBTreeCacheNode(key, val, expiration)
-		_ = r.cacheData.Add(key, node) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 		return true, nil
 	}
 	//如果没有err，证明能找到缓存数据
@@ -259,7 +258,7 @@ func (r *RBTreeClient) SetNX(ctx context.Context, key string, val any, expiratio
 		// 缓存过期，先删除旧的，然后进行SetNX
 		r.cacheData.Delete(key)
 		newNode := newKVNXRBTreeCacheNode(key, val, expiration)
-		_ = r.cacheData.Add(key, newNode) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, newNode) //这里的error理论上不会出现
 		return true, nil
 	}
 	return false, nil
@@ -270,7 +269,7 @@ func (r *RBTreeClient) Get(ctx context.Context, key string) (val ecache.Value) {
 	node, cacheErr := r.cacheData.Find(key)
 	r.clientLock.RUnlock()
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据
+		//如果有err，证明没找到缓存数据
 		val.Err = errs.ErrKeyNotExist
 		return
 	}
@@ -321,7 +320,7 @@ func (r *RBTreeClient) GetSet(ctx context.Context, key string, val string) ecach
 	var retVal ecache.Value
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据
+		//如果有err，证明没找到缓存数据
 		retVal.Err = errs.ErrKeyNotExist
 
 		if r.isFull() {
@@ -334,7 +333,7 @@ func (r *RBTreeClient) GetSet(ctx context.Context, key string, val string) ecach
 		}
 
 		newNode := newKVRBTreeCacheNode(key, val, 0)
-		_ = r.cacheData.Add(key, newNode) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, newNode) //这里的error理论上不会出现
 		r.cacheNum++
 		r.priorityData.SetCacheNodePriority(r.getValPriorityWeight(newNode), newNode) //设置新的优先级数据
 
@@ -364,9 +363,9 @@ func (r *RBTreeClient) LPush(ctx context.Context, key string, val ...any) (int64
 
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据，要先新增缓存结点
+		//如果有err，证明没找到缓存数据，要先新增缓存结点
 		node = newListRBTreeCacheNode(key)
-		_ = r.cacheData.Add(key, node) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != unitTypeList {
@@ -377,8 +376,7 @@ func (r *RBTreeClient) LPush(ctx context.Context, key string, val ...any) (int64
 	// 依次执行 lpush
 	successNum := 0
 	for item := range val {
-		_ = nodeVal.Add(0, item)
-		// 这里的err只会是NewErrIndexOutOfRange，lpush的逻辑是不会出现的
+		_ = nodeVal.Add(0, item) //这里的error理论上是不会出现的
 		successNum++
 	}
 	return int64(successNum), nil
@@ -392,7 +390,7 @@ func (r *RBTreeClient) LPop(ctx context.Context, key string) ecache.Value {
 
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据
+		//如果有err，证明没找到缓存数据
 		retVal.Err = errs.ErrKeyNotExist
 		return retVal
 	}
@@ -417,9 +415,9 @@ func (r *RBTreeClient) SAdd(ctx context.Context, key string, members ...any) (in
 
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据，要先新增缓存结点
+		//如果有err，证明没找到缓存数据，要先新增缓存结点
 		node = newSetRBTreeCacheNode(key, mapSetInitSize)
-		_ = r.cacheData.Add(key, node) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != unitTypeSet {
@@ -481,9 +479,9 @@ func (r *RBTreeClient) IncrBy(ctx context.Context, key string, value int64) (int
 
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据，要先新增缓存结点
+		//如果有err，证明没找到缓存数据，要先新增缓存结点
 		node = newIntRBTreeCacheNode(key)
-		_ = r.cacheData.Add(key, node) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != unitTypeNum {
@@ -504,9 +502,9 @@ func (r *RBTreeClient) DecrBy(ctx context.Context, key string, value int64) (int
 
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		//如果有err，只会是ErrRBTreeNotRBNode，证明没找到缓存数据，要先新增缓存结点
+		//如果有err，证明没找到缓存数据，要先新增缓存结点
 		node = newIntRBTreeCacheNode(key)
-		_ = r.cacheData.Add(key, node) //这里的error只会是ErrRBTreeSameRBNode，理论上不会出现
+		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != unitTypeNum {
