@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package lru
 
 import (
 	"context"
@@ -25,17 +25,18 @@ import (
 )
 
 type Cache struct {
-	lock   sync.Mutex
+	lock   sync.RWMutex
 	client simplelru.LRUCache[string, any]
 }
 
 func NewCache(client simplelru.LRUCache[string, any]) *Cache {
 	return &Cache{
-		lock:   sync.Mutex{},
+		lock:   sync.RWMutex{},
 		client: client,
 	}
 }
 
+// Set expiration 无效 由lru 统一控制过期时间
 func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -44,6 +45,7 @@ func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Du
 	return nil
 }
 
+// SetNX expiration 无效 由lru 统一控制过期时间
 func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -58,6 +60,8 @@ func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.
 }
 
 func (c *Cache) Get(ctx context.Context, key string) (val ecache.Value) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	var ok bool
 	val.Val, ok = c.client.Get(key)
 	if !ok {
@@ -78,6 +82,7 @@ func (c *Cache) GetSet(ctx context.Context, key string, val string) (result ecac
 	}
 
 	c.client.Add(key, val)
+
 	return
 }
 

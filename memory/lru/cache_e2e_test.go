@@ -14,7 +14,7 @@
 
 //go:build e2e
 
-package memory
+package lru
 
 import (
 	"context"
