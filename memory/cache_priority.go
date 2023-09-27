@@ -1,67 +1,60 @@
+// Copyright 2023 ecodeclub
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package memory
 
 import (
-	"errors"
 	"github.com/ecodeclub/ekit/queue"
 )
 
-var (
-	errPriorityUnitNotExist = errors.New("ecache: 没有找到相应权重的结点")
-)
-
-// Priority 如果传进来的元素没有实现了该接口，则使用默认权重
+// Priority 如果传进来的元素没有实现该接口，则默认优先级为0
 type Priority interface {
-	// GetPriorityWeight 获取元素的优先级
-	GetPriorityWeight() int64
+	// GetPriority 获取元素的优先级
+	GetPriority() int64
 }
 
-// CachePriority 缓存的优先级数据
-type CachePriority struct {
-	priorityData      *queue.PriorityQueue[*priorityNode] //优先级数据
-	priorityWeightMap map[int64]*priorityNode             //方便快速找某个权重值的结点
+// cachePriority 缓存的优先级数据
+type cachePriority struct {
+	priorityQueue *queue.PriorityQueue[*cachePriorityNode] //优先级队列
 }
 
-func newCachePriority(initSize int) *CachePriority {
-	priorityData := queue.NewPriorityQueue[*priorityNode](initSize, comparatorPriorityNode())
-	//这里的error传了compare就不可能出现的，直接忽略
-	return &CachePriority{
-		priorityData:      priorityData,
-		priorityWeightMap: make(map[int64]*priorityNode),
+func newCachePriority(initSize int) *cachePriority {
+	priorityQueue := queue.NewPriorityQueue[*cachePriorityNode](initSize, comparatorCachePriorityNode())
+	//这里的error传了compare就不可能出现，直接忽略
+	return &cachePriority{
+		priorityQueue: priorityQueue,
 	}
 }
 
-// SetCacheNodePriority 设置缓存结点的优先级数据
-func (cp *CachePriority) SetCacheNodePriority(priorityWeight int64, node *rbTreeCacheNode) {
-	priorityUnit, priorityErr := cp.findPriorityNodeByPriorityWeight(priorityWeight)
-	//这里的error只会是ErrPriorityUnitNotExist
-	if priorityErr != nil {
-		// 如果优先级结点不存在就新建一个
-		priorityUnit = newPriorityNode(priorityWeight)
-		_ = cp.priorityData.Enqueue(priorityUnit)
-		cp.priorityWeightMap[priorityWeight] = priorityUnit
-	}
-	//建立缓存节点和优先级结点的映射关系
-	node.priorityUnit = priorityUnit
-	priorityUnit.cacheData[node.key] = node
+// setCacheNodePriority 设置缓存结点的优先级数据
+func (cp *cachePriority) setCacheNodePriority(cacheNode *rbTreeCacheNode, priority int64) {
+	priorityNode := newCachePriorityNode(priority)
+	//建立缓存结点和优先级结点的映射关系
+	cacheNode.priorityNode = priorityNode
+	priorityNode.cacheNode = cacheNode
+
+	_ = cp.priorityQueue.Enqueue(priorityNode)
 }
 
-// DeleteCacheNodePriority 移除缓存结点的优先级数据
-func (cp *CachePriority) DeleteCacheNodePriority(node *rbTreeCacheNode) {
-	if node.priorityUnit == nil {
+// deleteCacheNodePriority 移除缓存结点的优先级数据
+func (cp *cachePriority) deleteCacheNodePriority(cacheNode *rbTreeCacheNode) {
+	if cacheNode.priorityNode == nil {
 		return //理论上缓存结点和优先级结点是对应上的，不应该出现走这里的情况。
 	}
-	priorityUnit := node.priorityUnit
-	node.priorityUnit = nil
-	delete(priorityUnit.cacheData, node.key)
-	//这里不删除空的优先级结点，可能前脚刚删掉，后脚就被新建出来了
-	//触发缓存淘汰的时候再删，那个时候删的是顶部的，应该不会那么快就被新建出来
-}
-
-// 用优先级权重查找优先级结点
-func (cp *CachePriority) findPriorityNodeByPriorityWeight(priorityWeight int64) (*priorityNode, error) {
-	if val, ok := cp.priorityWeightMap[priorityWeight]; ok {
-		return val, nil
-	} else {
-		return nil, errPriorityUnitNotExist
-	}
+	priorityNode := cacheNode.priorityNode
+	//删除缓存结点和优先级结点的映射关系
+	cacheNode.priorityNode = nil
+	priorityNode.cacheNode = nil
+	//这里不删除优先级结点，等到触发淘汰的时候在处理
 }
