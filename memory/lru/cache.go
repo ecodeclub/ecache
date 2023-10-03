@@ -16,8 +16,11 @@ package lru
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
+
+	"github.com/ecodeclub/ekit/list"
 
 	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ecache/internal/errs"
@@ -86,13 +89,74 @@ func (c *Cache) GetSet(ctx context.Context, key string, val string) (result ecac
 	return
 }
 
+// anySliceToValueSlice 公共转换
+func (c *Cache) anySliceToValueSlice(data ...any) []ecache.Value {
+	newVal := make([]ecache.Value, len(data), cap(data))
+	for key, value := range data {
+		anyVal := ecache.Value{}
+		anyVal.Val = value
+		newVal[key] = anyVal
+	}
+	return newVal
+}
+
 func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error) {
-	// TODO
-	return 0, nil
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var (
+		ok     bool
+		result = ecache.Value{}
+	)
+	result.Val, ok = c.client.Get(key)
+	if !ok {
+		l := &list.ConcurrentList[ecache.Value]{
+			List: list.NewLinkedListOf[ecache.Value](c.anySliceToValueSlice(val)),
+		}
+		c.client.Add(key, l)
+		return int64(l.Len()), nil
+	}
+
+	data, ok := result.Val.(list.List[ecache.Value])
+	if !ok {
+		return 0, errors.New("当前key不是list类型")
+	}
+
+	err := data.Append(c.anySliceToValueSlice(val)...)
+	if err != nil {
+		return 0, err
+	}
+
+	c.client.Add(key, data)
+	return int64(data.Len()), nil
 }
 
 func (c *Cache) LPop(ctx context.Context, key string) (val ecache.Value) {
-	// TODO
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var (
+		ok bool
+	)
+	val.Val, ok = c.client.Get(key)
+	if !ok {
+		val.Err = errs.ErrKeyNotExist
+		return
+	}
+
+	data, ok := val.Val.(list.List[ecache.Value])
+	if !ok {
+		val.Err = errors.New("当前key不是list类型")
+		return
+	}
+
+	value, err := data.Delete(0)
+	if err != nil {
+		val.Err = err
+		return
+	}
+
+	val = value
 	return
 }
 
@@ -107,16 +171,76 @@ func (c *Cache) SRem(ctx context.Context, key string, members ...any) (val ecach
 }
 
 func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, error) {
-	// TODO
-	return 0, nil
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var (
+		ok     bool
+		result = ecache.Value{}
+	)
+	result.Val, ok = c.client.Get(key)
+	if !ok {
+		c.client.Add(key, value)
+		return value, nil
+	}
+
+	incr, err := result.Int64()
+	if err != nil {
+		return 0, errors.New("当前key不是int64类型")
+	}
+
+	newVal := incr + value
+	c.client.Add(key, newVal)
+
+	return newVal, nil
 }
 
 func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
-	// TODO
-	return 0, nil
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var (
+		ok     bool
+		result = ecache.Value{}
+	)
+	result.Val, ok = c.client.Get(key)
+	if !ok {
+		c.client.Add(key, -value)
+		return -value, nil
+	}
+
+	decr, err := result.Int64()
+	if err != nil {
+		return 0, errors.New("当前key不是int64类型")
+	}
+
+	newVal := decr - value
+	c.client.Add(key, newVal)
+
+	return newVal, nil
 }
 
 func (c *Cache) IncrByFloat(ctx context.Context, key string, value float64) (float64, error) {
-	// TODO
-	return 0, nil
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var (
+		ok     bool
+		result = ecache.Value{}
+	)
+	result.Val, ok = c.client.Get(key)
+	if !ok {
+		c.client.Add(key, value)
+		return value, nil
+	}
+
+	val, err := result.Float64()
+	if err != nil {
+		return 0, errors.New("当前key不是float64类型")
+	}
+
+	newVal := val + value
+	c.client.Add(key, newVal)
+
+	return newVal, nil
 }
