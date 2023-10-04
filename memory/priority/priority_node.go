@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package priority
 
 import "github.com/ecodeclub/ekit"
 
-// cachePriorityNode 优先级结点
-type cachePriorityNode struct {
+// priorityNode 优先级结点
+type priorityNode struct {
 	priority  int64            //优先级
 	cacheNode *rbTreeCacheNode //缓存结点的映射
 }
 
-func newCachePriorityNode(priority int64) *cachePriorityNode {
-	return &cachePriorityNode{
+func newPriorityNode(priority int64) *priorityNode {
+	return &priorityNode{
 		priority: priority,
 	}
 }
 
-// comparatorCachePriorityNode 优先级结点的比较方式
-func comparatorCachePriorityNode() ekit.Comparator[*cachePriorityNode] {
-	return func(src *cachePriorityNode, dst *cachePriorityNode) int {
+// comparatorPriorityNode 优先级结点的比较方式
+func comparatorPriorityNode() ekit.Comparator[*priorityNode] {
+	return func(src *priorityNode, dst *priorityNode) int {
 		if src.priority < dst.priority {
 			return -1
 		} else if src.priority == dst.priority {

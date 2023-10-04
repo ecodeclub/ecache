@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package priority
 
 import (
 	"time"
@@ -33,13 +33,13 @@ const (
 
 // 缓存结点
 type rbTreeCacheNode struct {
-	key            string             //键
-	unitType       int                //缓存结点类型，有四种类型
-	value          any                //值
-	deadline       time.Time          //有效期，默认0，永不过期
-	priorityNode   *cachePriorityNode //优先级结点的映射
-	lastCallTime   time.Time          //缓存最后一次被调用的时间
-	totalCallTimes int                //缓存被调用的次数
+	key            string        //键
+	unitType       int           //缓存结点类型，有四种类型
+	value          any           //值
+	deadline       time.Time     //有效期，默认0，永不过期
+	priorityNode   *priorityNode //优先级结点的映射
+	lastCallTime   time.Time     //缓存最后一次被调用的时间
+	totalCallTimes int           //缓存被调用的次数
 }
 
 func newKVRBTreeCacheNode(key string, val any, expiration time.Duration) *rbTreeCacheNode {

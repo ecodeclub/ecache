@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package priority
 
 import (
 	"context"
@@ -107,29 +107,6 @@ func compareTwoRBTreeClient(src *RBTreePriorityCache, dst *RBTreePriorityCache) 
 	return true
 }
 
-func TestNewRBTreeClient(t *testing.T) {
-	testCases := []struct {
-		name       string
-		startCache func() (*RBTreePriorityCache, error)
-		wantErr    error
-	}{
-		{
-			name: "wrong priority type",
-			startCache: func() (*RBTreePriorityCache, error) {
-				cache, err := NewRBTreePriorityCache(WithPriorityType(0))
-				return cache, err
-			},
-			wantErr: ErrWrongPriorityType,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := tc.startCache()
-			assert.Equal(t, tc.wantErr, err)
-		})
-	}
-}
-
 func TestRBTreePriorityCache_autoClean(t *testing.T) {
 	cache, _ := NewRBTreePriorityCache()
 	key := "key"
@@ -219,7 +196,7 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key:        "key1",
@@ -230,7 +207,7 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value2", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 		},
@@ -261,7 +238,7 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key:        "key2",
@@ -272,7 +249,7 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key2", "value2", time.Minute)
 				_ = cache.cacheData.Add("key2", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 		},
@@ -283,11 +260,11 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", testStructForPriority{priority: 1}, time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				node2 := newKVRBTreeCacheNode("key2", testStructForPriority{priority: 2}, time.Minute)
 				_ = cache.cacheData.Add("key2", node2)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node2, cache.calculatePriority(node2))
+				cache.priorityStrategy.setCacheNodePriority(node2)
 				return cache
 			},
 			key:        "key3",
@@ -298,11 +275,11 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node2 := newKVRBTreeCacheNode("key2", testStructForPriority{priority: 2}, time.Minute)
 				_ = cache.cacheData.Add("key2", node2)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node2, cache.calculatePriority(node2))
+				cache.priorityStrategy.setCacheNodePriority(node2)
 				node3 := newKVRBTreeCacheNode("key3", "value3", time.Minute)
 				_ = cache.cacheData.Add("key3", node3)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node3, cache.calculatePriority(node3))
+				cache.priorityStrategy.setCacheNodePriority(node3)
 				return cache
 			},
 		},
@@ -313,11 +290,11 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", testStructForPriority{priority: 2}, time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				node2 := newKVRBTreeCacheNode("key2", testStructForPriority{priority: 1}, time.Minute)
 				_ = cache.cacheData.Add("key2", node2)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node2, cache.calculatePriority(node2))
+				cache.priorityStrategy.setCacheNodePriority(node2)
 				return cache
 			},
 			key:        "key3",
@@ -328,11 +305,11 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", testStructForPriority{priority: 2}, time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				node3 := newKVRBTreeCacheNode("key3", "value3", time.Minute)
 				_ = cache.cacheData.Add("key3", node3)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node3, cache.calculatePriority(node3))
+				cache.priorityStrategy.setCacheNodePriority(node3)
 				return cache
 			},
 		},
@@ -350,7 +327,69 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 				return cache
 			},
 			key:     "key1",
-			wantErr: ErrOnlyKVCanSet,
+			wantErr: errOnlyKVCanSet,
+		},
+		{
+			//1缓存结点，新增1覆盖，理论上不应该出现这种情况，凑一下测试覆盖率
+			name: "1cache,add1,cover,should not happen,just for coverage",
+			startCache: func() *RBTreePriorityCache {
+				cache, _ := NewRBTreePriorityCache()
+
+				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
+				_ = cache.cacheData.Add("key1", node1)
+				cache.cacheNum++
+				//这里不应该出现没有设置的情况，出现这种这种情况肯定有bug
+				//client.priorityData.SetCacheNodePriority(client.getValPriorityWeight(node1), node1)
+
+				return cache
+			},
+			key:        "key1",
+			value:      "value2",
+			expiration: time.Minute,
+			wantCache: func() *RBTreePriorityCache {
+				cache, _ := NewRBTreePriorityCache()
+
+				node1 := newKVRBTreeCacheNode("key1", "value2", time.Minute)
+				_ = cache.cacheData.Add("key1", node1)
+				cache.cacheNum++
+				cache.priorityStrategy.setCacheNodePriority(node1)
+
+				return cache
+			},
+		},
+		{
+			//1缓存容量，1缓存结点，新增触发淘汰，堆顶为空的情况，理论上不应该出现这种情况，凑一下测试覆盖率
+			name: "1limit,1cache,add1,evict,heap top nil,should not happen,just for coverage",
+			startCache: func() *RBTreePriorityCache {
+				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+
+				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
+				_ = cache.cacheData.Add("key1", node1)
+				cache.cacheNum++
+				//这里不应该出现没有设置的情况，出现这种这种情况肯定有bug
+				//client.priorityData.SetCacheNodePriority(client.getValPriorityWeight(node1), node1)
+
+				return cache
+			},
+			key:        "key3",
+			value:      "value3",
+			expiration: time.Minute,
+			wantCache: func() *RBTreePriorityCache {
+				cache, _ := NewRBTreePriorityCache()
+
+				//上面的bug导致这个结点没被删掉
+				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
+				_ = cache.cacheData.Add("key1", node1)
+				cache.cacheNum++
+				cache.priorityStrategy.setCacheNodePriority(node1)
+
+				node3 := newKVRBTreeCacheNode("key3", "value3", time.Minute)
+				_ = cache.cacheData.Add("key3", node3)
+				cache.cacheNum++
+				cache.priorityStrategy.setCacheNodePriority(node3)
+
+				return cache
+			},
 		},
 	}
 	for _, tc := range testCases {
@@ -498,7 +537,7 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 				return cache
 			},
 			key:     "key1",
-			wantErr: ErrOnlyKVNXCanSetNX,
+			wantErr: errOnlyKVNXCanSetNX,
 		},
 	}
 	for _, tc := range testCases {
@@ -544,7 +583,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key: "key2",
@@ -553,7 +592,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				cache.cacheNum++
 				return cache
 			},
@@ -566,7 +605,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key: "key1",
@@ -575,7 +614,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			wantValue: "value1",
@@ -587,7 +626,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", 0)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key: "key1",
@@ -596,7 +635,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			wantValue: "value1",
@@ -608,7 +647,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", -time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key: "key1",
@@ -632,7 +671,7 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 				return cache
 			},
 			key:     "key1",
-			wantErr: ErrOnlyKVCanGet,
+			wantErr: errOnlyKVCanGet,
 		},
 	}
 	for _, tc := range testCases {
@@ -662,7 +701,7 @@ func TestRBTreePriorityCache_doubleCheckInGet(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", -time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key: "key1",
@@ -703,10 +742,10 @@ func TestLRU(t *testing.T) {
 		{
 			name: "cache num 1",
 			startCache: func() *RBTreePriorityCache {
-				cache, _ := NewRBTreePriorityCache(WithPriorityType(PriorityTypeLRU))
+				cache, _ := NewRBTreePriorityCacheWithLRU()
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key:     "key1",
@@ -715,13 +754,13 @@ func TestLRU(t *testing.T) {
 		{
 			name: "cache num 2,get key1",
 			startCache: func() *RBTreePriorityCache {
-				cache, _ := NewRBTreePriorityCache(WithPriorityType(PriorityTypeLRU))
+				cache, _ := NewRBTreePriorityCacheWithLRU()
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				node2 := newKVRBTreeCacheNode("key2", "value2", time.Minute)
 				_ = cache.cacheData.Add("key2", node2)
-				cache.priorityData.setCacheNodePriority(node2, cache.calculatePriority(node2))
+				cache.priorityStrategy.setCacheNodePriority(node2)
 				return cache
 			},
 			key:     "key1",
@@ -733,7 +772,7 @@ func TestLRU(t *testing.T) {
 			startCache := tc.startCache()
 			_ = startCache.Get(context.Background(), tc.key)
 			for {
-				top, _ := startCache.priorityData.priorityQueue.Dequeue()
+				top, _ := startCache.priorityStrategy.priorityQueue.Dequeue()
 				if top.cacheNode == nil {
 					continue
 				}
@@ -754,10 +793,10 @@ func TestLFU(t *testing.T) {
 		{
 			name: "cache num 1,get key1",
 			startCache: func() *RBTreePriorityCache {
-				cache, _ := NewRBTreePriorityCache(WithPriorityType(PriorityTypeLFU))
+				cache, _ := NewRBTreePriorityCacheWithLFU()
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key:     "key1",
@@ -766,13 +805,13 @@ func TestLFU(t *testing.T) {
 		{
 			name: "cache num 2,get key1",
 			startCache: func() *RBTreePriorityCache {
-				cache, _ := NewRBTreePriorityCache(WithPriorityType(PriorityTypeLFU))
+				cache, _ := NewRBTreePriorityCacheWithLFU()
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				node2 := newKVRBTreeCacheNode("key2", "value2", time.Minute)
 				_ = cache.cacheData.Add("key2", node2)
-				cache.priorityData.setCacheNodePriority(node2, cache.calculatePriority(node2))
+				cache.priorityStrategy.setCacheNodePriority(node2)
 				return cache
 			},
 			key:     "key1",
@@ -784,7 +823,7 @@ func TestLFU(t *testing.T) {
 			startCache := tc.startCache()
 			_ = startCache.Get(context.Background(), tc.key)
 			for {
-				top, _ := startCache.priorityData.priorityQueue.Dequeue()
+				top, _ := startCache.priorityStrategy.priorityQueue.Dequeue()
 				if top.cacheNode == nil {
 					continue
 				}
@@ -848,7 +887,7 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key:   "key1",
@@ -868,7 +907,7 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", -time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key:   "key1",
@@ -878,7 +917,7 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value2", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			wantValue: "value1",
@@ -890,7 +929,7 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 				node1 := newKVRBTreeCacheNode("key1", "value1", time.Minute)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
-				cache.priorityData.setCacheNodePriority(node1, cache.calculatePriority(node1))
+				cache.priorityStrategy.setCacheNodePriority(node1)
 				return cache
 			},
 			key:   "key2",
@@ -917,7 +956,7 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 				return cache
 			},
 			key:     "key1",
-			wantErr: ErrOnlyKVCanGetSet,
+			wantErr: errOnlyKVCanGetSet,
 		},
 	}
 	for _, tc := range testCases {
@@ -1029,7 +1068,7 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 				_ = cache.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
 				return cache
 			},
-			wantErr: ErrOnlyListCanLPUSH,
+			wantErr: errOnlyListCanLPUSH,
 		},
 	}
 	for _, tc := range testCases {
@@ -1129,7 +1168,7 @@ func TestRBTreePriorityCache_LPop(t *testing.T) {
 				_ = cache.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
 				return cache
 			},
-			wantErr: ErrOnlyListCanLPOP,
+			wantErr: errOnlyListCanLPOP,
 		},
 	}
 	for _, tc := range testCases {
@@ -1271,7 +1310,7 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				return cache
 			},
 			wantRet: 0,
-			wantErr: ErrOnlySetCanSAdd,
+			wantErr: errOnlySetCanSAdd,
 		},
 	}
 	for _, tc := range testCases {
@@ -1399,7 +1438,7 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 				return client
 			},
 			wantRet: 0,
-			wantErr: ErrOnlySetCanSRem,
+			wantErr: errOnlySetCanSRem,
 		},
 	}
 	for _, tc := range testCases {
@@ -1483,7 +1522,7 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 				_ = cache.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
 				return cache
 			},
-			wantErr: ErrOnlyNumCanIncrBy,
+			wantErr: errOnlyNumCanIncrBy,
 		},
 	}
 	for _, tc := range testCases {
@@ -1567,7 +1606,7 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 				_ = cache.cacheData.Add("key1", newKVRBTreeCacheNode("key1", "value1", time.Minute))
 				return cache
 			},
-			wantErr: ErrOnlyNumCanDecrBy,
+			wantErr: errOnlyNumCanDecrBy,
 		},
 	}
 	for _, tc := range testCases {

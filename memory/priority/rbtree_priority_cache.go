@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package priority
 
 import (
 	"context"
@@ -29,29 +29,21 @@ import (
 )
 
 var (
-	ErrWrongPriorityType = errors.New("ecache: 错误的优先级类型")
-	ErrOnlyKVCanSet      = errors.New("ecache: 只有 kv 类型的数据，才能执行 Set")
-	ErrOnlyKVCanGet      = errors.New("ecache: 只有 kv 类型的数据，才能执行 Get")
-	ErrOnlyKVNXCanSetNX  = errors.New("ecache: 只有 SetNX 创建的数据，才能执行 SetNX")
-	ErrOnlyKVCanGetSet   = errors.New("ecache: 只有 kv 类型的数据，才能执行 GetSet")
-	ErrOnlyListCanLPUSH  = errors.New("ecache: 只有 list 类型的数据，才能执行 LPush")
-	ErrOnlyListCanLPOP   = errors.New("ecache: 只有 list 类型的数据，才能执行 LPop")
-	ErrOnlySetCanSAdd    = errors.New("ecache: 只有 set 类型的数据，才能执行 SAdd")
-	ErrOnlySetCanSRem    = errors.New("ecache: 只有 set 类型的数据，才能执行 SRem")
-	ErrOnlyNumCanIncrBy  = errors.New("ecache: 只有数字类型的数据，才能执行 IncrBy")
-	ErrOnlyNumCanDecrBy  = errors.New("ecache: 只有数字类型的数据，才能执行 DecrBy")
-)
-
-// 优先级类型
-const (
-	PriorityTypeDefault = iota + 1 //优先级，默认
-	PriorityTypeLRU                //最近最少使用
-	PriorityTypeLFU                //最不经常使用
+	errOnlyKVCanSet     = errors.New("ecache: 只有 kv 类型的数据，才能执行 Set")
+	errOnlyKVCanGet     = errors.New("ecache: 只有 kv 类型的数据，才能执行 Get")
+	errOnlyKVNXCanSetNX = errors.New("ecache: 只有 SetNX 创建的数据，才能执行 SetNX")
+	errOnlyKVCanGetSet  = errors.New("ecache: 只有 kv 类型的数据，才能执行 GetSet")
+	errOnlyListCanLPUSH = errors.New("ecache: 只有 list 类型的数据，才能执行 LPush")
+	errOnlyListCanLPOP  = errors.New("ecache: 只有 list 类型的数据，才能执行 LPop")
+	errOnlySetCanSAdd   = errors.New("ecache: 只有 set 类型的数据，才能执行 SAdd")
+	errOnlySetCanSRem   = errors.New("ecache: 只有 set 类型的数据，才能执行 SRem")
+	errOnlyNumCanIncrBy = errors.New("ecache: 只有数字类型的数据，才能执行 IncrBy")
+	errOnlyNumCanDecrBy = errors.New("ecache: 只有数字类型的数据，才能执行 DecrBy")
 )
 
 var (
 	//这两个变量还没有想到好的办法，option模式感觉不好搞，如果外部没有传设置的option怎么办呢
-	priorityQueueInitSize = 8 //优先级数据，小根堆的初始大小
+	priorityQueueInitSize = 8 //优先级队列的初始大小
 	mapSetInitSize        = 8 //缓存set结点，set.MapSet的初始大小
 )
 
@@ -62,44 +54,51 @@ type RBTreePriorityCache struct {
 	cacheNum   int                                    //键值对数量
 	cacheLimit int                                    //键值对数量限制，默认0，表示没有限制
 
-	priorityData *cachePriority //优先级数据
-	priorityType int            //优先级类型
+	priorityStrategy *priorityStrategy //优先级策略
 }
 
 func NewRBTreePriorityCache(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
-	rbTree, _ := tree.NewRBTree[string, *rbTreeCacheNode](comparatorRBTreeCacheNode())
-	//这里的error传了compare就不可能出现的，直接忽略
-
-	cache := &RBTreePriorityCache{
-		globalLock:   &sync.RWMutex{},
-		cacheData:    rbTree,
-		cacheNum:     0,
-		cacheLimit:   0,
-		priorityData: newCachePriority(priorityQueueInitSize),
-		priorityType: PriorityTypeDefault,
-	}
-	option.Apply(cache, opts...)
-
-	if cache.priorityType != PriorityTypeDefault &&
-		cache.priorityType != PriorityTypeLRU &&
-		cache.priorityType != PriorityTypeLFU {
-		return nil, ErrWrongPriorityType
-	}
-
+	cache, _ := newRBTreePriorityCache(opts...)
+	strategy, _ := newPriorityStrategy(priorityTypeDefault, priorityQueueInitSize)
+	cache.priorityStrategy = strategy
 	go cache.autoClean()
 
+	return cache, nil
+}
+
+func NewRBTreePriorityCacheWithLRU(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
+	cache, _ := newRBTreePriorityCache(opts...)
+	strategy, _ := newPriorityStrategy(priorityTypeLRU, priorityQueueInitSize)
+	cache.priorityStrategy = strategy
+	go cache.autoClean()
+
+	return cache, nil
+}
+
+func NewRBTreePriorityCacheWithLFU(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
+	cache, _ := newRBTreePriorityCache(opts...)
+	strategy, _ := newPriorityStrategy(priorityTypeLFU, priorityQueueInitSize)
+	cache.priorityStrategy = strategy
+	go cache.autoClean()
+
+	return cache, nil
+}
+
+func newRBTreePriorityCache(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
+	rbTree, _ := tree.NewRBTree[string, *rbTreeCacheNode](comparatorRBTreeCacheNode())
+	cache := &RBTreePriorityCache{
+		globalLock: &sync.RWMutex{},
+		cacheData:  rbTree,
+		cacheNum:   0,
+		cacheLimit: 0,
+	}
+	option.Apply(cache, opts...)
 	return cache, nil
 }
 
 func WithCacheLimit(cacheLimit int) option.Option[RBTreePriorityCache] {
 	return func(opt *RBTreePriorityCache) {
 		opt.cacheLimit = cacheLimit
-	}
-}
-
-func WithPriorityType(priorityType int) option.Option[RBTreePriorityCache] {
-	return func(opt *RBTreePriorityCache) {
-		opt.priorityType = priorityType
 	}
 }
 
@@ -120,28 +119,6 @@ func (r *RBTreePriorityCache) autoClean() {
 	}
 }
 
-// calculatePriority 获取缓存数据的优先级权重
-func (r *RBTreePriorityCache) calculatePriority(node *rbTreeCacheNode) int64 {
-	if r.priorityType == PriorityTypeLRU {
-		if node.lastCallTime.IsZero() {
-			return 0
-		}
-		return node.lastCallTime.Unix()
-	}
-
-	if r.priorityType == PriorityTypeLFU {
-		return int64(node.totalCallTimes)
-	}
-
-	var priorityWeight int64
-	//如果实现了Priority接口，那么就用接口的方法获取优先级权重
-	val, ok := node.value.(Priority)
-	if ok {
-		priorityWeight = val.GetPriority()
-	}
-	return priorityWeight
-}
-
 // isFull 键值对数量满了没有
 func (r *RBTreePriorityCache) isFull() bool {
 	if r.cacheLimit <= 0 {
@@ -156,7 +133,7 @@ func (r *RBTreePriorityCache) deleteByPriority() {
 	needContinue := true
 	for needContinue {
 		//这里需要循环，因为有的优先级结点是空的
-		topPriorityNode, topErr := r.priorityData.priorityQueue.Dequeue()
+		topPriorityNode, topErr := r.priorityStrategy.priorityQueue.Dequeue()
 		if topErr != nil {
 			//走这里铁有bug，不可能缓存满了但是优先级队列是空的
 			return
@@ -184,17 +161,17 @@ func (r *RBTreePriorityCache) Set(ctx context.Context, key string, val any, expi
 		node = newKVRBTreeCacheNode(key, val, expiration)
 		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 		r.cacheNum++
-		r.priorityData.setCacheNodePriority(node, r.calculatePriority(node)) //设置新的优先级数据
+		r.priorityStrategy.setCacheNodePriority(node) //设置新的优先级数据
 		return nil
 	}
 	//如果没有err，证明能找到缓存数据，执行修改
 	if node.unitType != rbTreeCacheNodeTypeKV {
-		return ErrOnlyKVCanSet
+		return errOnlyKVCanSet
 	}
 	node.value = val //覆盖旧值
 	node.setExpiration(expiration)
-	r.priorityData.deleteCacheNodePriority(node)                         //移除旧的优先级数据
-	r.priorityData.setCacheNodePriority(node, r.calculatePriority(node)) //设置新的优先级数据
+	r.priorityStrategy.deleteCacheNodePriority(node) //移除旧的优先级数据
+	r.priorityStrategy.setCacheNodePriority(node)    //设置新的优先级数据
 	return nil
 }
 
@@ -211,7 +188,7 @@ func (r *RBTreePriorityCache) SetNX(ctx context.Context, key string, val any, ex
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeKVNX {
-		return false, ErrOnlyKVNXCanSetNX
+		return false, errOnlyKVNXCanSetNX
 	}
 	//判断是不是自己的
 	if node.value == val {
@@ -241,7 +218,7 @@ func (r *RBTreePriorityCache) Get(ctx context.Context, key string) (val ecache.V
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeKV {
-		val.Err = ErrOnlyKVCanGet
+		val.Err = errOnlyKVCanGet
 		return
 	}
 	//判断缓存到期没有
@@ -253,11 +230,12 @@ func (r *RBTreePriorityCache) Get(ctx context.Context, key string) (val ecache.V
 	}
 	val.Val = node.value
 
-	if r.priorityType == PriorityTypeLRU || r.priorityType == PriorityTypeLFU {
-		node.lastCallTime = now
-		node.totalCallTimes++
-		r.priorityData.deleteCacheNodePriority(node)                         //移除旧的优先级数据
-		r.priorityData.setCacheNodePriority(node, r.calculatePriority(node)) //设置新的优先级数据
+	node.lastCallTime = now
+	node.totalCallTimes++
+
+	if r.priorityStrategy.priorityAffectByGet() {
+		r.priorityStrategy.deleteCacheNodePriority(node) //移除旧的优先级数据
+		r.priorityStrategy.setCacheNodePriority(node)    //设置新的优先级数据
 	}
 	return
 }
@@ -276,7 +254,7 @@ func (r *RBTreePriorityCache) doubleCheckWhenExpire(key string, now time.Time) {
 	if !checkNode.beforeDeadline(now) {
 		r.cacheData.Delete(key) //移除缓存数据
 		r.cacheNum--
-		r.priorityData.deleteCacheNodePriority(checkNode) //移除优先级数据
+		r.priorityStrategy.deleteCacheNodePriority(checkNode) //移除优先级数据
 	}
 	return
 }
@@ -298,27 +276,27 @@ func (r *RBTreePriorityCache) GetSet(ctx context.Context, key string, val string
 		newNode := newKVRBTreeCacheNode(key, val, 0)
 		_ = r.cacheData.Add(key, newNode) //这里的error理论上不会出现
 		r.cacheNum++
-		r.priorityData.setCacheNodePriority(newNode, r.calculatePriority(newNode)) //设置新的优先级数据
+		r.priorityStrategy.setCacheNodePriority(newNode) //设置新的优先级数据
 
 		return retVal
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeKV {
-		retVal.Err = ErrOnlyKVCanGetSet
+		retVal.Err = errOnlyKVCanGetSet
 		return retVal
 	}
 	//这里不需要判断缓存过期没有，取出旧值放入新值就完事了
 	retVal.Val = node.value
 	node.value = val
 
-	if r.priorityType == PriorityTypeLRU || r.priorityType == PriorityTypeLFU {
+	if r.priorityStrategy.priorityAffectByGet() {
 		now := time.Now()
 		node.lastCallTime = now
 		node.totalCallTimes++
 	}
 
-	r.priorityData.deleteCacheNodePriority(node)                         //移除旧的优先级数据
-	r.priorityData.setCacheNodePriority(node, r.calculatePriority(node)) //设置新的优先级数据
+	r.priorityStrategy.deleteCacheNodePriority(node) //移除旧的优先级数据
+	r.priorityStrategy.setCacheNodePriority(node)    //设置新的优先级数据
 
 	return retVal
 }
@@ -335,7 +313,7 @@ func (r *RBTreePriorityCache) LPush(ctx context.Context, key string, val ...any)
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeList {
-		return 0, ErrOnlyListCanLPUSH
+		return 0, errOnlyListCanLPUSH
 	}
 	nodeVal, _ := node.value.(*list.LinkedList[any])
 
@@ -362,7 +340,7 @@ func (r *RBTreePriorityCache) LPop(ctx context.Context, key string) ecache.Value
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeList {
-		retVal.Err = ErrOnlyListCanLPOP
+		retVal.Err = errOnlyListCanLPOP
 		return retVal
 	}
 	nodeVal, _ := node.value.(*list.LinkedList[any])
@@ -387,7 +365,7 @@ func (r *RBTreePriorityCache) SAdd(ctx context.Context, key string, members ...a
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeSet {
-		return 0, ErrOnlySetCanSAdd
+		return 0, errOnlySetCanSAdd
 	}
 	nodeVal, _ := node.value.(*set.MapSet[any])
 
@@ -417,7 +395,7 @@ func (r *RBTreePriorityCache) SRem(ctx context.Context, key string, members ...a
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeSet {
-		retVal.Err = ErrOnlySetCanSRem
+		retVal.Err = errOnlySetCanSRem
 		return retVal
 	}
 	nodeVal, _ := node.value.(*set.MapSet[any])
@@ -451,7 +429,7 @@ func (r *RBTreePriorityCache) IncrBy(ctx context.Context, key string, value int6
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeNum {
-		return 0, ErrOnlyNumCanIncrBy
+		return 0, errOnlyNumCanIncrBy
 	}
 	nodeVal, _ := node.value.(int64)
 
@@ -474,7 +452,7 @@ func (r *RBTreePriorityCache) DecrBy(ctx context.Context, key string, value int6
 	}
 	//如果没有err，证明能找到缓存数据
 	if node.unitType != rbTreeCacheNodeTypeNum {
-		return 0, ErrOnlyNumCanDecrBy
+		return 0, errOnlyNumCanDecrBy
 	}
 	nodeVal, _ := node.value.(int64)
 
