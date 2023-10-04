@@ -17,8 +17,11 @@ package lru
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sync"
 	"time"
+
+	"github.com/ecodeclub/ekit/set"
 
 	"github.com/ecodeclub/ekit/list"
 
@@ -111,7 +114,7 @@ func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error
 	result.Val, ok = c.client.Get(key)
 	if !ok {
 		l := &list.ConcurrentList[ecache.Value]{
-			List: list.NewLinkedListOf[ecache.Value](c.anySliceToValueSlice(val)),
+			List: list.NewLinkedListOf[ecache.Value](c.anySliceToValueSlice(val...)),
 		}
 		c.client.Add(key, l)
 		return int64(l.Len()), nil
@@ -161,12 +164,72 @@ func (c *Cache) LPop(ctx context.Context, key string) (val ecache.Value) {
 }
 
 func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, error) {
-	// TODO
-	return 0, nil
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var (
+		ok     bool
+		result = ecache.Value{}
+	)
+	result.Val, ok = c.client.Get(key)
+	if !ok {
+		s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
+			if reflect.DeepEqual(src, dst) {
+				return 0
+			}
+			return 1
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		values := c.anySliceToValueSlice(members...)
+		for _, value := range values {
+			s.Add(value)
+		}
+
+		c.client.Add(key, s)
+		return int64(len(s.Keys())), nil
+	}
+
+	s, ok := result.Val.(*set.TreeSet[ecache.Value])
+	if !ok {
+		return 0, errors.New("当前key已存在不是set类型")
+	}
+
+	for _, value := range c.anySliceToValueSlice(members...) {
+		s.Add(value)
+	}
+	c.client.Add(key, s)
+
+	return int64(len(s.Keys())), nil
 }
 
 func (c *Cache) SRem(ctx context.Context, key string, members ...any) (val ecache.Value) {
-	// TODO
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	result, ok := c.client.Get(key)
+	if !ok {
+		val.Err = errs.ErrKeyNotExist
+		return
+	}
+
+	s, ok := result.(*set.TreeSet[ecache.Value])
+	if !ok {
+		val.Err = errors.New("当前key已存在不是set类型")
+		return
+	}
+
+	var rems = make([]ecache.Value, 0, len(members))
+	for _, value := range c.anySliceToValueSlice(members...) {
+		if s.Exist(value) {
+			s.Delete(value)
+			rems = append(rems, value)
+		}
+	}
+
+	val.Val = rems
 	return
 }
 

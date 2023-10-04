@@ -17,8 +17,11 @@ package lru
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/ecodeclub/ekit/set"
 
 	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ekit/list"
@@ -265,7 +268,7 @@ func TestCache_LPush(t *testing.T) {
 		after  func(t *testing.T)
 
 		key     string
-		val     string
+		val     []any
 		wantVal int64
 		wantErr error
 	}{
@@ -276,8 +279,18 @@ func TestCache_LPush(t *testing.T) {
 				assert.Equal(t, true, lru.Remove("test"))
 			},
 			key:     "test",
-			val:     "hello ecache",
+			val:     []any{"hello ecache"},
 			wantVal: 1,
+		},
+		{
+			name:   "lpush multiple value",
+			before: func(t *testing.T) {},
+			after: func(t *testing.T) {
+				assert.Equal(t, true, lru.Remove("test"))
+			},
+			key:     "test",
+			val:     []any{"hello ecache", "hello world"},
+			wantVal: 2,
 		},
 		{
 			name: "lpush value exists",
@@ -293,7 +306,7 @@ func TestCache_LPush(t *testing.T) {
 				assert.Equal(t, true, lru.Remove("test"))
 			},
 			key:     "test",
-			val:     "hello world",
+			val:     []any{"hello world"},
 			wantVal: 2,
 		},
 		{
@@ -305,7 +318,7 @@ func TestCache_LPush(t *testing.T) {
 				assert.Equal(t, true, lru.Remove("test"))
 			},
 			key:     "test",
-			val:     "hello ecache",
+			val:     []any{"hello ecache"},
 			wantErr: errors.New("当前key不是list类型"),
 		},
 	}
@@ -317,7 +330,7 @@ func TestCache_LPush(t *testing.T) {
 			c := NewCache(lru)
 
 			tc.before(t)
-			length, err := c.LPush(ctx, tc.key, tc.val)
+			length, err := c.LPush(ctx, tc.key, tc.val...)
 			assert.Equal(t, tc.wantVal, length)
 			assert.Equal(t, tc.wantErr, err)
 			tc.after(t)
@@ -422,6 +435,192 @@ func TestCache_LPop(t *testing.T) {
 	}
 }
 
+func TestCache_SAdd(t *testing.T) {
+	evictCounter := 0
+	onEvicted := func(key string, value any) {
+		evictCounter++
+	}
+	lru, err := simplelru.NewLRU[string, any](5, onEvicted)
+	assert.NoError(t, err)
+
+	testCase := []struct {
+		name   string
+		before func(t *testing.T)
+		after  func(t *testing.T)
+
+		key     string
+		val     []any
+		wantVal int64
+		wantErr error
+	}{
+		{
+			name:   "sadd value",
+			before: func(t *testing.T) {},
+			after: func(t *testing.T) {
+				assert.Equal(t, true, lru.Remove("test"))
+			},
+			key:     "test",
+			val:     []any{"hello ecache", "hello world"},
+			wantVal: 2,
+		},
+		{
+			name: "sadd value exist",
+			before: func(t *testing.T) {
+				s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
+					if reflect.DeepEqual(src, dst) {
+						return 0
+					}
+					return 1
+				})
+				assert.NoError(t, err)
+
+				var val = ecache.Value{}
+				val.Val = "hello world"
+
+				s.Add(val)
+
+				assert.Equal(t, false, lru.Add("test", s))
+			},
+			after: func(t *testing.T) {
+				assert.Equal(t, true, lru.Remove("test"))
+			},
+			key:     "test",
+			val:     []any{"hello ecache"},
+			wantVal: 2,
+		},
+		{
+			name: "sadd value type err",
+			before: func(t *testing.T) {
+				assert.Equal(t, false, lru.Add("test", "string"))
+			},
+			after: func(t *testing.T) {
+				assert.Equal(t, true, lru.Remove("test"))
+			},
+			key:     "test",
+			val:     []any{"hello"},
+			wantErr: errors.New("当前key已存在不是set类型"),
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(lru)
+
+			tc.before(t)
+			val, err := c.SAdd(ctx, tc.key, tc.val...)
+			assert.Equal(t, tc.wantVal, val)
+			assert.Equal(t, tc.wantErr, err)
+			tc.after(t)
+		})
+	}
+}
+
+func TestCache_SRem(t *testing.T) {
+	evictCounter := 0
+	onEvicted := func(key string, value any) {
+		evictCounter++
+	}
+	lru, err := simplelru.NewLRU[string, any](5, onEvicted)
+	assert.NoError(t, err)
+
+	testCase := []struct {
+		name   string
+		before func(t *testing.T)
+		after  func(t *testing.T)
+
+		key     string
+		val     []any
+		wantVal []string
+		wantErr error
+	}{
+		{
+			name: "srem value",
+			before: func(t *testing.T) {
+				s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
+					if reflect.DeepEqual(src, dst) {
+						return 0
+					}
+					return 1
+				})
+				assert.NoError(t, err)
+
+				var val = ecache.Value{}
+				val.Val = "hello world"
+
+				s.Add(val)
+
+				assert.Equal(t, false, lru.Add("test", s))
+			},
+			after: func(t *testing.T) {
+				assert.Equal(t, true, lru.Remove("test"))
+			},
+			key:     "test",
+			val:     []any{"hello world"},
+			wantVal: []string{"hello world"},
+		},
+		{
+			name: "srem value ignore",
+			before: func(t *testing.T) {
+				s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
+					if reflect.DeepEqual(src, dst) {
+						return 0
+					}
+					return 1
+				})
+				assert.NoError(t, err)
+
+				var val = ecache.Value{}
+				val.Val = "hello world"
+
+				s.Add(val)
+
+				assert.Equal(t, false, lru.Add("test", s))
+			},
+			after: func(t *testing.T) {
+				assert.Equal(t, true, lru.Remove("test"))
+			},
+			key:     "test",
+			val:     []any{"hello ecache"},
+			wantVal: []string{},
+		},
+		{
+			name:    "srem value nil",
+			before:  func(t *testing.T) {},
+			after:   func(t *testing.T) {},
+			key:     "test",
+			val:     []any{"hello world"},
+			wantErr: errs.ErrKeyNotExist,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(lru)
+
+			tc.before(t)
+			val := c.SRem(ctx, tc.key, tc.val...)
+			defer tc.after(t)
+			if val.Err != nil {
+				assert.Equal(t, tc.wantErr, val.Err)
+				return
+			}
+
+			// 内部由于存储的都是 ecache.Value 所以并不能直接与 []any 进行对比
+			result, ok := val.Val.([]ecache.Value)
+			assert.Equal(t, true, ok)
+			for key, value := range result {
+				s, err := value.String()
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantVal[key], s)
+			}
+		})
+	}
+}
+
 func TestCache_IncrBy(t *testing.T) {
 	evictCounter := 0
 	onEvicted := func(key string, value any) {
@@ -430,7 +629,7 @@ func TestCache_IncrBy(t *testing.T) {
 	lru, err := simplelru.NewLRU[string, any](5, onEvicted)
 	assert.NoError(t, err)
 
-	testCache := []struct {
+	testCase := []struct {
 		name   string
 		before func(t *testing.T)
 		after  func(t *testing.T)
@@ -476,7 +675,7 @@ func TestCache_IncrBy(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCache {
+	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
@@ -499,7 +698,7 @@ func TestCache_DecrBy(t *testing.T) {
 	lru, err := simplelru.NewLRU[string, any](5, onEvicted)
 	assert.NoError(t, err)
 
-	testCache := []struct {
+	testCase := []struct {
 		name   string
 		before func(t *testing.T)
 		after  func(t *testing.T)
@@ -545,7 +744,7 @@ func TestCache_DecrBy(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCache {
+	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
@@ -568,7 +767,7 @@ func TestCache_IncrByFloat(t *testing.T) {
 	lru, err := simplelru.NewLRU[string, any](5, onEvicted)
 	assert.NoError(t, err)
 
-	testCache := []struct {
+	testCase := []struct {
 		name   string
 		before func(t *testing.T)
 		after  func(t *testing.T)
@@ -614,7 +813,7 @@ func TestCache_IncrByFloat(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCache {
+	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
