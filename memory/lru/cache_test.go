@@ -593,6 +593,18 @@ func TestCache_SRem(t *testing.T) {
 			val:     []any{"hello world"},
 			wantErr: errs.ErrKeyNotExist,
 		},
+		{
+			name: "srem value type error",
+			before: func(t *testing.T) {
+				assert.Equal(t, false, lru.Add("test", int64(1)))
+			},
+			after: func(t *testing.T) {
+				assert.Equal(t, true, lru.Remove("test"))
+			},
+			key:     "test",
+			val:     []any{"hello world"},
+			wantErr: errors.New("当前key已存在不是set类型"),
+		},
 	}
 
 	for _, tc := range testCase {
