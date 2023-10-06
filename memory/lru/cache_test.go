@@ -17,6 +17,7 @@ package lru
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -466,18 +467,21 @@ func TestCache_SAdd(t *testing.T) {
 		{
 			name: "sadd value exist",
 			before: func(t *testing.T) {
-				s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
-					if reflect.DeepEqual(src, dst) {
-						return 0
+				s, err := set.NewTreeSet[any](func(src any, dst any) int {
+					s := fmt.Sprintf("%v", src)
+					d := fmt.Sprintf("%v", dst)
+					if s < d {
+						return -1
 					}
-					return 1
+
+					if s > d {
+						return 1
+					}
+
+					return 0
 				})
 				assert.NoError(t, err)
-
-				var val = ecache.Value{}
-				val.Val = "hello world"
-
-				s.Add(val)
+				s.Add("hello world")
 
 				assert.Equal(t, false, lru.Add("test", s))
 			},
@@ -507,6 +511,19 @@ func TestCache_SAdd(t *testing.T) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
 			c := NewCache(lru)
+			c.SetComparator(func(src any, dst any) int {
+				s := fmt.Sprintf("%v", src)
+				d := fmt.Sprintf("%v", dst)
+				if s < d {
+					return -1
+				}
+
+				if s > d {
+					return 1
+				}
+
+				return 0
+			})
 
 			tc.before(t)
 			val, err := c.SAdd(ctx, tc.key, tc.val...)
@@ -532,24 +549,28 @@ func TestCache_SRem(t *testing.T) {
 
 		key     string
 		val     []any
-		wantVal []string
+		wantVal []any
 		wantErr error
 	}{
 		{
 			name: "srem value",
 			before: func(t *testing.T) {
-				s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
-					if reflect.DeepEqual(src, dst) {
-						return 0
+				s, err := set.NewTreeSet[any](func(src any, dst any) int {
+					s := fmt.Sprintf("%v", src)
+					d := fmt.Sprintf("%v", dst)
+					if s < d {
+						return -1
 					}
-					return 1
+
+					if s > d {
+						return 1
+					}
+
+					return 0
 				})
 				assert.NoError(t, err)
 
-				var val = ecache.Value{}
-				val.Val = "hello world"
-
-				s.Add(val)
+				s.Add("hello world")
 
 				assert.Equal(t, false, lru.Add("test", s))
 			},
@@ -558,23 +579,26 @@ func TestCache_SRem(t *testing.T) {
 			},
 			key:     "test",
 			val:     []any{"hello world"},
-			wantVal: []string{"hello world"},
+			wantVal: []any{"hello world"},
 		},
 		{
 			name: "srem value ignore",
 			before: func(t *testing.T) {
-				s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
-					if reflect.DeepEqual(src, dst) {
-						return 0
+				s, err := set.NewTreeSet[any](func(src any, dst any) int {
+					s := fmt.Sprintf("%v", src)
+					d := fmt.Sprintf("%v", dst)
+					if s < d {
+						return -1
 					}
-					return 1
+
+					if s > d {
+						return 1
+					}
+
+					return 0
 				})
 				assert.NoError(t, err)
-
-				var val = ecache.Value{}
-				val.Val = "hello world"
-
-				s.Add(val)
+				s.Add("hello world")
 
 				assert.Equal(t, false, lru.Add("test", s))
 			},
@@ -583,7 +607,7 @@ func TestCache_SRem(t *testing.T) {
 			},
 			key:     "test",
 			val:     []any{"hello ecache"},
-			wantVal: []string{},
+			wantVal: []any{},
 		},
 		{
 			name:    "srem value nil",
@@ -612,6 +636,19 @@ func TestCache_SRem(t *testing.T) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
 			c := NewCache(lru)
+			c.SetComparator(func(src any, dst any) int {
+				s := fmt.Sprintf("%v", src)
+				d := fmt.Sprintf("%v", dst)
+				if s < d {
+					return -1
+				}
+
+				if s > d {
+					return 1
+				}
+
+				return 0
+			})
 
 			tc.before(t)
 			val := c.SRem(ctx, tc.key, tc.val...)
@@ -621,14 +658,9 @@ func TestCache_SRem(t *testing.T) {
 				return
 			}
 
-			// 内部由于存储的都是 ecache.Value 所以并不能直接与 []any 进行对比
-			result, ok := val.Val.([]ecache.Value)
+			result, ok := val.Val.([]any)
 			assert.Equal(t, true, ok)
-			for key, value := range result {
-				s, err := value.String()
-				assert.NoError(t, err)
-				assert.Equal(t, tc.wantVal[key], s)
-			}
+			assert.Equal(t, true, reflect.DeepEqual(tc.wantVal, result))
 		})
 	}
 }

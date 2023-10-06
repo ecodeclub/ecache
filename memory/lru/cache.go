@@ -17,9 +17,11 @@ package lru
 import (
 	"context"
 	"errors"
-	"reflect"
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/ecodeclub/ekit"
 
 	"github.com/ecodeclub/ekit/set"
 
@@ -31,15 +33,33 @@ import (
 )
 
 type Cache struct {
-	lock   sync.RWMutex
-	client simplelru.LRUCache[string, any]
+	lock          sync.RWMutex
+	client        simplelru.LRUCache[string, any]
+	setComparator ekit.Comparator[any]
 }
 
 func NewCache(client simplelru.LRUCache[string, any]) *Cache {
 	return &Cache{
 		lock:   sync.RWMutex{},
 		client: client,
+		setComparator: func(src any, dst any) int {
+			s := fmt.Sprintf("%v", src)
+			d := fmt.Sprintf("%v", dst)
+			if s < d {
+				return -1
+			}
+
+			if s > d {
+				return 1
+			}
+
+			return 0
+		},
 	}
+}
+
+func (c *Cache) SetComparator(comparator ekit.Comparator[any]) {
+	c.setComparator = comparator
 }
 
 // Set expiration 无效 由lru 统一控制过期时间
@@ -173,18 +193,12 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	)
 	result.Val, ok = c.client.Get(key)
 	if !ok {
-		s, err := set.NewTreeSet[ecache.Value](func(src ecache.Value, dst ecache.Value) int {
-			if reflect.DeepEqual(src, dst) {
-				return 0
-			}
-			return 1
-		})
+		s, err := set.NewTreeSet[any](c.setComparator)
 		if err != nil {
 			return 0, err
 		}
 
-		values := c.anySliceToValueSlice(members...)
-		for _, value := range values {
+		for _, value := range members {
 			s.Add(value)
 		}
 
@@ -192,12 +206,12 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 		return int64(len(s.Keys())), nil
 	}
 
-	s, ok := result.Val.(*set.TreeSet[ecache.Value])
+	s, ok := result.Val.(set.Set[any])
 	if !ok {
 		return 0, errors.New("当前key已存在不是set类型")
 	}
 
-	for _, value := range c.anySliceToValueSlice(members...) {
+	for _, value := range members {
 		s.Add(value)
 	}
 	c.client.Add(key, s)
@@ -215,17 +229,17 @@ func (c *Cache) SRem(ctx context.Context, key string, members ...any) (val ecach
 		return
 	}
 
-	s, ok := result.(*set.TreeSet[ecache.Value])
+	s, ok := result.(set.Set[any])
 	if !ok {
 		val.Err = errors.New("当前key已存在不是set类型")
 		return
 	}
 
-	var rems = make([]ecache.Value, 0, len(members))
-	for _, value := range c.anySliceToValueSlice(members...) {
-		if s.Exist(value) {
-			s.Delete(value)
-			rems = append(rems, value)
+	var rems = make([]any, 0, cap(members))
+	for _, member := range members {
+		if s.Exist(member) {
+			rems = append(rems, member)
+			s.Delete(member)
 		}
 	}
 
