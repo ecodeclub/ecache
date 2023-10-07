@@ -33,13 +33,11 @@ const (
 
 // 缓存结点
 type rbTreeCacheNode struct {
-	key            string        //键
-	unitType       int           //缓存结点类型，有四种类型
-	value          any           //值
-	deadline       time.Time     //有效期，默认0，永不过期
-	priorityNode   *priorityNode //优先级结点的映射
-	lastCallTime   time.Time     //缓存最后一次被调用的时间
-	totalCallTimes int           //缓存被调用的次数
+	key      string    //键
+	unitType int       //缓存结点类型，有四种类型
+	value    any       //值
+	deadline time.Time //有效期，默认0，永不过期
+	priority int64     //优先级
 }
 
 func newKVRBTreeCacheNode(key string, val any, expiration time.Duration) *rbTreeCacheNode {
@@ -103,12 +101,25 @@ func (node *rbTreeCacheNode) beforeDeadline(checkTime time.Time) bool {
 	return checkTime.Before(node.deadline)
 }
 
-// comparatorRBTreeCacheNode 红黑树结点的比较方式
-func comparatorRBTreeCacheNode() ekit.Comparator[string] {
+// comparatorRBTreeCacheNodeByKey 红黑树结点根据key的比较方式
+func comparatorRBTreeCacheNodeByKey() ekit.Comparator[string] {
 	return func(src string, dst string) int {
 		if src < dst {
 			return -1
 		} else if src == dst {
+			return 0
+		} else {
+			return 1
+		}
+	}
+}
+
+// comparatorRBTreeCacheNodeByPriority 红黑树结点根据优先级的比较方式
+func comparatorRBTreeCacheNodeByPriority() ekit.Comparator[*rbTreeCacheNode] {
+	return func(src *rbTreeCacheNode, dst *rbTreeCacheNode) int {
+		if src.priority < dst.priority {
+			return -1
+		} else if src.priority == dst.priority {
 			return 0
 		} else {
 			return 1

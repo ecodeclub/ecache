@@ -17,6 +17,7 @@ package priority
 import (
 	"context"
 	"errors"
+	"github.com/ecodeclub/ekit/queue"
 	"sync"
 	"time"
 
@@ -50,47 +51,28 @@ var (
 type RBTreePriorityCache struct {
 	globalLock *sync.RWMutex //内部全局读写锁，保护缓存数据和优先级数据
 
-	cacheData  *tree.RBTree[string, *rbTreeCacheNode] //缓存数据
-	cacheNum   int                                    //键值对数量
-	cacheLimit int                                    //键值对数量限制，默认0，表示没有限制
+	cacheData *tree.RBTree[string, *rbTreeCacheNode] //缓存数据
 
-	priorityStrategy *priorityStrategy //优先级策略
+	cacheNum      int                                    //参与优先级淘汰的键值对数量
+	cacheLimit    int                                    //优先级淘汰的键值对数量限制，默认0，表示没有限制
+	priorityQueue *queue.PriorityQueue[*rbTreeCacheNode] //优先级队列
 }
 
 func NewRBTreePriorityCache(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
 	cache, _ := newRBTreePriorityCache(opts...)
-	strategy, _ := newPriorityStrategy(priorityTypeDefault, priorityQueueInitSize)
-	cache.priorityStrategy = strategy
 	go cache.autoClean()
-
-	return cache, nil
-}
-
-func NewRBTreePriorityCacheWithLRU(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
-	cache, _ := newRBTreePriorityCache(opts...)
-	strategy, _ := newPriorityStrategy(priorityTypeLRU, priorityQueueInitSize)
-	cache.priorityStrategy = strategy
-	go cache.autoClean()
-
-	return cache, nil
-}
-
-func NewRBTreePriorityCacheWithLFU(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
-	cache, _ := newRBTreePriorityCache(opts...)
-	strategy, _ := newPriorityStrategy(priorityTypeLFU, priorityQueueInitSize)
-	cache.priorityStrategy = strategy
-	go cache.autoClean()
-
 	return cache, nil
 }
 
 func newRBTreePriorityCache(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
-	rbTree, _ := tree.NewRBTree[string, *rbTreeCacheNode](comparatorRBTreeCacheNode())
+	rbTree, _ := tree.NewRBTree[string, *rbTreeCacheNode](comparatorRBTreeCacheNodeByKey())
+	priorityQueue := queue.NewPriorityQueue[*rbTreeCacheNode](priorityQueueInitSize, comparatorRBTreeCacheNodeByPriority())
 	cache := &RBTreePriorityCache{
-		globalLock: &sync.RWMutex{},
-		cacheData:  rbTree,
-		cacheNum:   0,
-		cacheLimit: 0,
+		globalLock:    &sync.RWMutex{},
+		cacheData:     rbTree,
+		cacheNum:      0,
+		cacheLimit:    0,
+		priorityQueue: priorityQueue,
 	}
 	option.Apply(cache, opts...)
 	return cache, nil
@@ -130,21 +112,20 @@ func (r *RBTreePriorityCache) isFull() bool {
 // deleteByPriority 根据优先级淘汰数据
 func (r *RBTreePriorityCache) deleteByPriority() {
 	//这里不需要加锁，因为触发淘汰的时候肯定是走了set逻辑，已经锁过了
-	needContinue := true
-	for needContinue {
+	for {
 		//这里需要循环，因为有的优先级结点是空的
-		topPriorityNode, topErr := r.priorityStrategy.priorityQueue.Dequeue()
+		topNode, topErr := r.priorityQueue.Dequeue()
 		if topErr != nil {
 			//走这里铁有bug，不可能缓存满了但是优先级队列是空的
 			return
 		}
-		if topPriorityNode.cacheNode == nil {
-			needContinue = true
-			continue //优先级结点是空的，直接回去，继续下一轮
+		if topNode.key == "" {
+			continue //空结点，直接回去，继续下一轮
 		}
-		r.cacheData.Delete(topPriorityNode.cacheNode.key)
+		// 结点非空，删除缓存
+		r.cacheData.Delete(topNode.key)
 		r.cacheNum--
-		needContinue = false
+		return
 	}
 }
 
@@ -161,7 +142,7 @@ func (r *RBTreePriorityCache) Set(ctx context.Context, key string, val any, expi
 		node = newKVRBTreeCacheNode(key, val, expiration)
 		_ = r.cacheData.Add(key, node) //这里的error理论上不会出现
 		r.cacheNum++
-		r.priorityStrategy.setCacheNodePriority(node) //设置新的优先级数据
+		r.setCacheNodePriority(node) //设置新的优先级数据
 		return nil
 	}
 	//如果没有err，证明能找到缓存数据，执行修改
@@ -170,8 +151,7 @@ func (r *RBTreePriorityCache) Set(ctx context.Context, key string, val any, expi
 	}
 	node.value = val //覆盖旧值
 	node.setExpiration(expiration)
-	r.priorityStrategy.deleteCacheNodePriority(node) //移除旧的优先级数据
-	r.priorityStrategy.setCacheNodePriority(node)    //设置新的优先级数据
+
 	return nil
 }
 
@@ -229,14 +209,6 @@ func (r *RBTreePriorityCache) Get(ctx context.Context, key string) (val ecache.V
 		return
 	}
 	val.Val = node.value
-
-	node.lastCallTime = now
-	node.totalCallTimes++
-
-	if r.priorityStrategy.priorityAffectByGet() {
-		r.priorityStrategy.deleteCacheNodePriority(node) //移除旧的优先级数据
-		r.priorityStrategy.setCacheNodePriority(node)    //设置新的优先级数据
-	}
 	return
 }
 
@@ -254,7 +226,7 @@ func (r *RBTreePriorityCache) doubleCheckWhenExpire(key string, now time.Time) {
 	if !checkNode.beforeDeadline(now) {
 		r.cacheData.Delete(key) //移除缓存数据
 		r.cacheNum--
-		r.priorityStrategy.deleteCacheNodePriority(checkNode) //移除优先级数据
+		r.deleteCacheNodePriority(checkNode) //移除优先级数据
 	}
 	return
 }
@@ -276,7 +248,7 @@ func (r *RBTreePriorityCache) GetSet(ctx context.Context, key string, val string
 		newNode := newKVRBTreeCacheNode(key, val, 0)
 		_ = r.cacheData.Add(key, newNode) //这里的error理论上不会出现
 		r.cacheNum++
-		r.priorityStrategy.setCacheNodePriority(newNode) //设置新的优先级数据
+		r.setCacheNodePriority(newNode) //设置新的优先级数据
 
 		return retVal
 	}
@@ -288,15 +260,6 @@ func (r *RBTreePriorityCache) GetSet(ctx context.Context, key string, val string
 	//这里不需要判断缓存过期没有，取出旧值放入新值就完事了
 	retVal.Val = node.value
 	node.value = val
-
-	if r.priorityStrategy.priorityAffectByGet() {
-		now := time.Now()
-		node.lastCallTime = now
-		node.totalCallTimes++
-	}
-
-	r.priorityStrategy.deleteCacheNodePriority(node) //移除旧的优先级数据
-	r.priorityStrategy.setCacheNodePriority(node)    //设置新的优先级数据
 
 	return retVal
 }
@@ -461,4 +424,28 @@ func (r *RBTreePriorityCache) DecrBy(ctx context.Context, key string, value int6
 	node.value = newVal
 
 	return newVal, nil
+}
+
+// calculatePriority 获取缓存数据的优先级权重
+func (r *RBTreePriorityCache) calculatePriority(node *rbTreeCacheNode) int64 {
+	var priority int64
+	//如果实现了Priority接口，那么就用接口的方法获取优先级权重
+	val, ok := node.value.(Priority)
+	if ok {
+		priority = val.GetPriority()
+	}
+	return priority
+}
+
+// setCacheNodePriority 设置缓存结点的优先级数据
+func (r *RBTreePriorityCache) setCacheNodePriority(cacheNode *rbTreeCacheNode) {
+	cacheNode.priority = r.calculatePriority(cacheNode)
+	_ = r.priorityQueue.Enqueue(cacheNode)
+}
+
+// deleteCacheNodePriority 移除缓存结点的优先级数据
+func (r *RBTreePriorityCache) deleteCacheNodePriority(cacheNode *rbTreeCacheNode) {
+	cacheNode.key = ""
+	cacheNode.value = struct{}{}
+	//优先级队列无法随机删除结点，这里把结点置空，等到触发淘汰的时候在处理
 }
