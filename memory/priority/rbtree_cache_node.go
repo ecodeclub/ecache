@@ -15,46 +15,26 @@
 package priority
 
 import (
+	"github.com/ecodeclub/ekit/list"
+	"github.com/ecodeclub/ekit/set"
 	"time"
 
 	"github.com/ecodeclub/ekit"
-	"github.com/ecodeclub/ekit/list"
-	"github.com/ecodeclub/ekit/set"
 )
 
-// 缓存结点类型
-const (
-	rbTreeCacheNodeTypeKV   = iota + 1 //普通键值对，只有普通键值对会参与淘汰
-	rbTreeCacheNodeTypeKVNX            //NX键值对，这里和普通键值对区分开，因为 NX 键值对不参与淘汰
-	rbTreeCacheNodeTypeList            //list，用list.LinkedList[any]实现
-	rbTreeCacheNodeTypeSet             //set，用set.MapSet[any]实现
-	rbTreeCacheNodeTypeNum             //int64，给IncrBy和DecrBy用
-)
-
-// 缓存结点
+// rbTreeCacheNode 缓存结点
 type rbTreeCacheNode struct {
-	key      string    //键
-	unitType int       //缓存结点类型，有四种类型
-	value    any       //值
-	deadline time.Time //有效期，默认0，永不过期
-	priority int64     //优先级
+	key       string    //键
+	value     any       //值
+	deadline  time.Time //有效期，默认0，永不过期
+	priority  int       //优先级
+	isDeleted bool      //是否被删除
 }
 
-func newKVRBTreeCacheNode(key string, val any, expiration time.Duration) *rbTreeCacheNode {
+func newKVRBTreeCacheNode(key string, value any, expiration time.Duration) *rbTreeCacheNode {
 	node := &rbTreeCacheNode{
-		key:      key,
-		unitType: rbTreeCacheNodeTypeKV,
-		value:    val,
-	}
-	node.setExpiration(expiration)
-	return node
-}
-
-func newKVNXRBTreeCacheNode(key string, val any, expiration time.Duration) *rbTreeCacheNode {
-	node := &rbTreeCacheNode{
-		key:      key,
-		unitType: rbTreeCacheNodeTypeKVNX,
-		value:    val,
+		key:   key,
+		value: value,
 	}
 	node.setExpiration(expiration)
 	return node
@@ -62,25 +42,22 @@ func newKVNXRBTreeCacheNode(key string, val any, expiration time.Duration) *rbTr
 
 func newListRBTreeCacheNode(key string) *rbTreeCacheNode {
 	return &rbTreeCacheNode{
-		key:      key,
-		unitType: rbTreeCacheNodeTypeList,
-		value:    list.NewLinkedList[any](),
+		key:   key,
+		value: list.NewLinkedList[any](),
 	}
 }
 
 func newSetRBTreeCacheNode(key string, initSize int) *rbTreeCacheNode {
 	return &rbTreeCacheNode{
-		key:      key,
-		unitType: rbTreeCacheNodeTypeSet,
-		value:    set.NewMapSet[any](initSize),
+		key:   key,
+		value: set.NewMapSet[any](initSize),
 	}
 }
 
 func newIntRBTreeCacheNode(key string) *rbTreeCacheNode {
 	return &rbTreeCacheNode{
-		key:      key,
-		unitType: rbTreeCacheNodeTypeNum,
-		value:    int64(0),
+		key:   key,
+		value: int64(0),
 	}
 }
 
@@ -93,6 +70,12 @@ func (node *rbTreeCacheNode) setExpiration(expiration time.Duration) {
 	node.deadline = deadline
 }
 
+// replace 重新设置缓存结点的value和有效期
+func (node *rbTreeCacheNode) replace(value any, expiration time.Duration) {
+	node.value = value
+	node.setExpiration(expiration)
+}
+
 // beforeDeadline 检查传入的时间是不是在有效期之前
 func (node *rbTreeCacheNode) beforeDeadline(checkTime time.Time) bool {
 	if node.deadline.IsZero() {
@@ -101,7 +84,14 @@ func (node *rbTreeCacheNode) beforeDeadline(checkTime time.Time) bool {
 	return checkTime.Before(node.deadline)
 }
 
-// comparatorRBTreeCacheNodeByKey 红黑树结点根据key的比较方式
+// truncate 清空缓存结点中的数据
+func (node *rbTreeCacheNode) truncate() {
+	var nilValue any
+	node.value = nilValue
+	node.isDeleted = true
+}
+
+// comparatorRBTreeCacheNodeByKey 缓存结点根据key的比较方式（给红黑树用）
 func comparatorRBTreeCacheNodeByKey() ekit.Comparator[string] {
 	return func(src string, dst string) int {
 		if src < dst {
@@ -114,7 +104,7 @@ func comparatorRBTreeCacheNodeByKey() ekit.Comparator[string] {
 	}
 }
 
-// comparatorRBTreeCacheNodeByPriority 红黑树结点根据优先级的比较方式
+// comparatorRBTreeCacheNodeByPriority 缓存结点根据优先级的比较方式（给优先级队列用）
 func comparatorRBTreeCacheNodeByPriority() ekit.Comparator[*rbTreeCacheNode] {
 	return func(src *rbTreeCacheNode, dst *rbTreeCacheNode) int {
 		if src.priority < dst.priority {
