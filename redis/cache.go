@@ -42,6 +42,10 @@ func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.
 	return c.client.SetNX(ctx, key, val, expiration).Result()
 }
 
+func (c *Cache) Delete(ctx context.Context, key ...string) (int64, error) {
+	return c.client.Del(ctx, key...).Result()
+}
+
 func (c *Cache) Get(ctx context.Context, key string) (val ecache.Value) {
 	val.Val, val.Err = c.client.Get(ctx, key).Result()
 	if val.Err != nil && errors.Is(val.Err, redis.Nil) {

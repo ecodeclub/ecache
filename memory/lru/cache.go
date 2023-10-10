@@ -17,6 +17,7 @@ package lru
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -27,6 +28,10 @@ import (
 	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
+)
+
+var (
+	_ ecache.Cache = (*Cache)(nil)
 )
 
 type Cache struct {
@@ -89,6 +94,28 @@ func (c *Cache) GetSet(ctx context.Context, key string, val string) (result ecac
 	c.client.Add(key, val)
 
 	return
+}
+
+func (c *Cache) Delete(ctx context.Context, key ...string) (int64, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	n := int64(0)
+	for _, k := range key {
+		if ctx.Err() != nil {
+			return n, ctx.Err()
+		}
+		_, ok := c.client.Get(k)
+		if !ok {
+			continue
+		}
+		if c.client.Remove(k) {
+			n++
+		} else {
+			return n, fmt.Errorf("%w: key = %s", errs.ErrDeleteKeyFailed, k)
+		}
+	}
+	return n, nil
 }
 
 // anySliceToValueSlice 公共转换

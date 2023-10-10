@@ -24,10 +24,9 @@ import (
 	"github.com/ecodeclub/ekit/set"
 
 	"github.com/ecodeclub/ecache"
+	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/ecodeclub/ekit/list"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
-
-	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -250,6 +249,101 @@ func TestCache_GetSet(t *testing.T) {
 			assert.Equal(t, tc.wantVal, val)
 			assert.Equal(t, tc.wantErr, err)
 			tc.after(t)
+		})
+	}
+}
+
+func TestCache_Delete(t *testing.T) {
+	cache, err := newCache()
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name   string
+		before func(ctx context.Context, t *testing.T, cache ecache.Cache)
+
+		ctxFunc func() context.Context
+		key     []string
+
+		wantN   int64
+		wantErr error
+	}{
+		{
+			name: "delete single existed key",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {
+				require.NoError(t, cache.Set(ctx, "name", "Alex", 0))
+			},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key:   []string{"name"},
+			wantN: 1,
+		},
+		{
+			name:   "delete single does not existed key",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key: []string{"notExistedKey"},
+		},
+		{
+			name: "delete multiple existed keys",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {
+				require.NoError(t, cache.Set(ctx, "name", "Alex", 0))
+				require.NoError(t, cache.Set(ctx, "age", 18, 0))
+			},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key:   []string{"name", "age"},
+			wantN: 2,
+		},
+		{
+			name:   "delete multiple do not existed keys",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key: []string{"name", "age"},
+		},
+		{
+			name: "delete multiple keys, some do not existed keys",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {
+				require.NoError(t, cache.Set(ctx, "name", "Alex", 0))
+				require.NoError(t, cache.Set(ctx, "age", 18, 0))
+				require.NoError(t, cache.Set(ctx, "gender", "male", 0))
+			},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key:   []string{"name", "age", "gender", "addr"},
+			wantN: 3,
+		},
+		{
+			name:   "timeout",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {},
+			ctxFunc: func() context.Context {
+				timeout := time.Millisecond * 100
+				ctx, cancel := context.WithTimeout(context.Background(), timeout)
+				defer cancel()
+				time.Sleep(timeout * 2)
+				return ctx
+			},
+			key:     []string{"name", "age", "addr"},
+			wantErr: context.DeadlineExceeded,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := tc.ctxFunc()
+			tc.before(ctx, t, cache)
+			n, err := cache.Delete(ctx, tc.key...)
+			if err != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			assert.Equal(t, tc.wantN, n)
 		})
 	}
 }
@@ -805,4 +899,20 @@ func TestCache_IncrByFloat(t *testing.T) {
 			tc.after(t)
 		})
 	}
+}
+
+func newCache() (ecache.Cache, error) {
+	client, err := newSimpleLRUClient(10)
+	if err != nil {
+		return nil, err
+	}
+	return NewCache(client), nil
+}
+
+func newSimpleLRUClient(size int) (simplelru.LRUCache[string, any], error) {
+	evictCounter := 0
+	onEvicted := func(key string, value any) {
+		evictCounter++
+	}
+	return simplelru.NewLRU[string, any](size, onEvicted)
 }
