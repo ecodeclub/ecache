@@ -17,11 +17,8 @@ package lru
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
-
-	"github.com/ecodeclub/ekit"
 
 	"github.com/ecodeclub/ekit/set"
 
@@ -33,33 +30,15 @@ import (
 )
 
 type Cache struct {
-	lock          sync.RWMutex
-	client        simplelru.LRUCache[string, any]
-	setComparator ekit.Comparator[any]
+	lock   sync.RWMutex
+	client simplelru.LRUCache[string, any]
 }
 
 func NewCache(client simplelru.LRUCache[string, any]) *Cache {
 	return &Cache{
 		lock:   sync.RWMutex{},
 		client: client,
-		setComparator: func(src any, dst any) int {
-			s := fmt.Sprintf("%v", src)
-			d := fmt.Sprintf("%v", dst)
-			if s < d {
-				return -1
-			}
-
-			if s > d {
-				return 1
-			}
-
-			return 0
-		},
 	}
-}
-
-func (c *Cache) SetComparator(comparator ekit.Comparator[any]) {
-	c.setComparator = comparator
 }
 
 // Set expiration 无效 由lru 统一控制过期时间
@@ -193,10 +172,7 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	)
 	result.Val, ok = c.client.Get(key)
 	if !ok {
-		s, err := set.NewTreeSet[any](c.setComparator)
-		if err != nil {
-			return 0, err
-		}
+		s := set.NewMapSet[any](2 ^ 32 - 1)
 
 		for _, value := range members {
 			s.Add(value)

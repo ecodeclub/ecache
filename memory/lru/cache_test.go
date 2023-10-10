@@ -17,7 +17,6 @@ package lru
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -467,20 +466,7 @@ func TestCache_SAdd(t *testing.T) {
 		{
 			name: "sadd value exist",
 			before: func(t *testing.T) {
-				s, err := set.NewTreeSet[any](func(src any, dst any) int {
-					s := fmt.Sprintf("%v", src)
-					d := fmt.Sprintf("%v", dst)
-					if s < d {
-						return -1
-					}
-
-					if s > d {
-						return 1
-					}
-
-					return 0
-				})
-				assert.NoError(t, err)
+				s := set.NewMapSet[any](2 ^ 32 - 1)
 				s.Add("hello world")
 
 				assert.Equal(t, false, lru.Add("test", s))
@@ -511,19 +497,6 @@ func TestCache_SAdd(t *testing.T) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
 			c := NewCache(lru)
-			c.SetComparator(func(src any, dst any) int {
-				s := fmt.Sprintf("%v", src)
-				d := fmt.Sprintf("%v", dst)
-				if s < d {
-					return -1
-				}
-
-				if s > d {
-					return 1
-				}
-
-				return 0
-			})
 
 			tc.before(t)
 			val, err := c.SAdd(ctx, tc.key, tc.val...)
@@ -555,22 +528,10 @@ func TestCache_SRem(t *testing.T) {
 		{
 			name: "srem value",
 			before: func(t *testing.T) {
-				s, err := set.NewTreeSet[any](func(src any, dst any) int {
-					s := fmt.Sprintf("%v", src)
-					d := fmt.Sprintf("%v", dst)
-					if s < d {
-						return -1
-					}
-
-					if s > d {
-						return 1
-					}
-
-					return 0
-				})
-				assert.NoError(t, err)
+				s := set.NewMapSet[any](2 ^ 32 - 1)
 
 				s.Add("hello world")
+				s.Add("hello ecache")
 
 				assert.Equal(t, false, lru.Add("test", s))
 			},
@@ -584,20 +545,7 @@ func TestCache_SRem(t *testing.T) {
 		{
 			name: "srem value ignore",
 			before: func(t *testing.T) {
-				s, err := set.NewTreeSet[any](func(src any, dst any) int {
-					s := fmt.Sprintf("%v", src)
-					d := fmt.Sprintf("%v", dst)
-					if s < d {
-						return -1
-					}
-
-					if s > d {
-						return 1
-					}
-
-					return 0
-				})
-				assert.NoError(t, err)
+				s := set.NewMapSet[any](2 ^ 32 - 1)
 				s.Add("hello world")
 
 				assert.Equal(t, false, lru.Add("test", s))
@@ -636,19 +584,6 @@ func TestCache_SRem(t *testing.T) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
 			c := NewCache(lru)
-			c.SetComparator(func(src any, dst any) int {
-				s := fmt.Sprintf("%v", src)
-				d := fmt.Sprintf("%v", dst)
-				if s < d {
-					return -1
-				}
-
-				if s > d {
-					return 1
-				}
-
-				return 0
-			})
 
 			tc.before(t)
 			val := c.SRem(ctx, tc.key, tc.val...)
