@@ -247,6 +247,118 @@ func TestCache_GetSet(t *testing.T) {
 	}
 }
 
+func TestCache_Delete(t *testing.T) {
+	testCases := []struct {
+		name string
+
+		mock func(*gomock.Controller) redis.Cmdable
+
+		key []string
+
+		wantN   int64
+		wantErr error
+	}{
+		{
+			name: "delete single existed key",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				status := redis.NewIntCmd(context.Background())
+				status.SetVal(int64(1))
+				status.SetErr(nil)
+				cmd.EXPECT().
+					Del(context.Background(), gomock.Any()).
+					Return(status)
+				return cmd
+			},
+			key:   []string{"name"},
+			wantN: 1,
+		},
+		{
+			name: "delete single does not existed key",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				status := redis.NewIntCmd(context.Background())
+				status.SetVal(int64(0))
+				status.SetErr(nil)
+				cmd.EXPECT().
+					Del(context.Background(), gomock.Any()).
+					Return(status)
+				return cmd
+			},
+			key: []string{"name"},
+		},
+		{
+			name: "delete multiple existed keys",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				status := redis.NewIntCmd(context.Background())
+				status.SetVal(int64(2))
+				status.SetErr(nil)
+				cmd.EXPECT().
+					Del(context.Background(), gomock.Any(), gomock.Any()).
+					Return(status)
+				return cmd
+			},
+			key:   []string{"name", "age"},
+			wantN: 2,
+		},
+		{
+			name: "delete multiple do not existed keys",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				status := redis.NewIntCmd(context.Background())
+				status.SetVal(0)
+				status.SetErr(nil)
+				cmd.EXPECT().
+					Del(context.Background(), gomock.Any(), gomock.Any()).
+					Return(status)
+				return cmd
+			},
+			key: []string{"name", "age"},
+		},
+		{
+			name: "delete multiple keys, some do not existed keys",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				status := redis.NewIntCmd(context.Background())
+				status.SetVal(1)
+				status.SetErr(nil)
+				cmd.EXPECT().
+					Del(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(status)
+				return cmd
+			},
+			key:   []string{"name", "age", "addr"},
+			wantN: 1,
+		},
+		{
+			name: "timeout",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				status := redis.NewIntCmd(context.Background())
+				status.SetVal(0)
+				status.SetErr(context.DeadlineExceeded)
+				cmd.EXPECT().
+					Del(context.Background(), gomock.Any()).
+					Return(status)
+				return cmd
+			},
+			key:     []string{"name"},
+			wantErr: context.DeadlineExceeded,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			c := NewCache(tc.mock(ctrl))
+			n, err := c.Delete(context.Background(), tc.key...)
+			assert.Equal(t, tc.wantN, n)
+			assert.Equal(t, tc.wantErr, err)
+		})
+	}
+}
+
 func TestCache_LPush(t *testing.T) {
 	testCase := []struct {
 		name    string
