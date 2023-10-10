@@ -250,7 +250,7 @@ func TestCache_GetSet(t *testing.T) {
 	}
 }
 
-func TestCache_e2e_Delete(t *testing.T) {
+func TestCache_Delete(t *testing.T) {
 	cache, err := newCache()
 	require.NoError(t, err)
 
