@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -28,9 +29,7 @@ import (
 )
 
 func TestCache_e2e_Set(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCases := []struct {
@@ -73,9 +72,7 @@ func TestCache_e2e_Set(t *testing.T) {
 }
 
 func TestCache_e2e_Get(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCases := []struct {
@@ -127,10 +124,103 @@ func TestCache_e2e_Get(t *testing.T) {
 	}
 }
 
+func TestCache_e2e_Delete(t *testing.T) {
+	cache, err := newCache()
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name   string
+		before func(ctx context.Context, t *testing.T, cache ecache.Cache)
+
+		ctxFunc func() context.Context
+		key     []string
+
+		wantN   int64
+		wantErr error
+	}{
+		{
+			name: "delete single existed key",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {
+				require.NoError(t, cache.Set(ctx, "name", "Alex", 0))
+			},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key:   []string{"name"},
+			wantN: 1,
+		},
+		{
+			name:   "delete single does not existed key",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key: []string{"notExistedKey"},
+		},
+		{
+			name: "delete multiple existed keys",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {
+				require.NoError(t, cache.Set(ctx, "name", "Alex", 0))
+				require.NoError(t, cache.Set(ctx, "age", 18, 0))
+			},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key:   []string{"name", "age"},
+			wantN: 2,
+		},
+		{
+			name:   "delete multiple do not existed keys",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key: []string{"name", "age"},
+		},
+		{
+			name: "delete multiple keys, some do not existed keys",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {
+				require.NoError(t, cache.Set(ctx, "name", "Alex", 0))
+				require.NoError(t, cache.Set(ctx, "age", 18, 0))
+				require.NoError(t, cache.Set(ctx, "gender", "male", 0))
+			},
+			ctxFunc: func() context.Context {
+				return context.Background()
+			},
+			key:   []string{"name", "age", "gender", "addr"},
+			wantN: 3,
+		},
+		{
+			name:   "timeout",
+			before: func(ctx context.Context, t *testing.T, cache ecache.Cache) {},
+			ctxFunc: func() context.Context {
+				timeout := time.Millisecond * 100
+				ctx, cancel := context.WithTimeout(context.Background(), timeout)
+				defer cancel()
+				time.Sleep(timeout * 2)
+				return ctx
+			},
+			key:     []string{"name", "age", "addr"},
+			wantErr: context.DeadlineExceeded,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := tc.ctxFunc()
+			tc.before(ctx, t, cache)
+			n, err := cache.Delete(ctx, tc.key...)
+			if err != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			assert.Equal(t, tc.wantN, n)
+		})
+	}
+}
+
 func TestCache_e2e_SetNX(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -182,9 +272,7 @@ func TestCache_e2e_SetNX(t *testing.T) {
 }
 
 func TestCache_e2e_GetSet(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -241,9 +329,7 @@ func TestCache_e2e_GetSet(t *testing.T) {
 }
 
 func TestCache_e2e_LPush(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -295,9 +381,7 @@ func TestCache_e2e_LPush(t *testing.T) {
 }
 
 func TestCache_e2e_LPop(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -358,9 +442,7 @@ func TestCache_e2e_LPop(t *testing.T) {
 }
 
 func TestCache_e2e_SAdd(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -413,9 +495,7 @@ func TestCache_e2e_SAdd(t *testing.T) {
 }
 
 func TestCache_e2e_SRem(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -506,9 +586,7 @@ func TestCache_e2e_SRem(t *testing.T) {
 }
 
 func TestCache_e2e_IncrBy(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -576,9 +654,7 @@ func TestCache_e2e_IncrBy(t *testing.T) {
 }
 
 func TestCache_e2e_DecrBy(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+	rdb := newRedisClient()
 	require.NoError(t, rdb.Ping(context.Background()).Err())
 
 	testCase := []struct {
@@ -643,4 +719,97 @@ func TestCache_e2e_DecrBy(t *testing.T) {
 			tc.after(ctx, t)
 		})
 	}
+}
+
+func TestCache_e2e_IncrByFloat(t *testing.T) {
+	rdb := newRedisClient()
+	require.NoError(t, rdb.Ping(context.Background()).Err())
+
+	testCase := []struct {
+		name    string
+		before  func(ctx context.Context, t *testing.T)
+		after   func(ctx context.Context, t *testing.T)
+		key     string
+		val     float64
+		wantVal float64
+		wantErr error
+	}{
+		{
+			name: "cache e2e incrbyfloat set value",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 10.50, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     0.1,
+			wantVal: 10.6,
+		},
+		{
+			name: "cache e2e incrbyfloat set exponential symbol",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 314e-2, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     0.0,
+			wantVal: 3.14,
+		},
+		{
+			name: "cache e2e incrbyfloat set by int",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 3, time.Second*10).Err())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     1.1,
+			wantVal: 4.1,
+		},
+		{
+			name: "cache e2e incrbyfloat set zero igon",
+			before: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Set(context.Background(), "test_e2e_incrbyfloat", 3.0, time.Second*10).Err())
+				assert.Equal(t, "3", rdb.Get(context.Background(), "test_e2e_incrbyfloat").Val())
+			},
+			after: func(ctx context.Context, t *testing.T) {
+				require.NoError(t, rdb.Del(context.Background(), "test_e2e_incrbyfloat").Err())
+			},
+			key:     "test_e2e_incrbyfloat",
+			val:     1.000000000000000000000,
+			wantVal: 4,
+		},
+	}
+
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			c := NewCache(rdb)
+			tc.before(ctx, t)
+			val, err := c.IncrByFloat(ctx, tc.key, tc.val)
+			assert.Equal(t, tc.wantVal, val)
+			assert.Equal(t, tc.wantErr, err)
+			tc.after(ctx, t)
+		})
+	}
+
+}
+
+func newCache() (ecache.Cache, error) {
+	rdb := newRedisClient()
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		return nil, err
+	}
+	return NewCache(rdb), nil
+}
+
+func newRedisClient() *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
 }
