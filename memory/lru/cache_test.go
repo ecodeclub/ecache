@@ -560,7 +560,7 @@ func TestCache_SAdd(t *testing.T) {
 		{
 			name: "sadd value exist",
 			before: func(t *testing.T) {
-				s := set.NewMapSet[any](2 ^ 32 - 1)
+				s := set.NewMapSet[any](8)
 				s.Add("hello world")
 
 				assert.Equal(t, false, lru.Add("test", s))
@@ -622,7 +622,7 @@ func TestCache_SRem(t *testing.T) {
 		{
 			name: "srem value",
 			before: func(t *testing.T) {
-				s := set.NewMapSet[any](2 ^ 32 - 1)
+				s := set.NewMapSet[any](8)
 
 				s.Add("hello world")
 				s.Add("hello ecache")
@@ -639,7 +639,7 @@ func TestCache_SRem(t *testing.T) {
 		{
 			name: "srem value ignore",
 			before: func(t *testing.T) {
-				s := set.NewMapSet[any](2 ^ 32 - 1)
+				s := set.NewMapSet[any](8)
 				s.Add("hello world")
 
 				assert.Equal(t, false, lru.Add("test", s))

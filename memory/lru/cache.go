@@ -199,14 +199,7 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	)
 	result.Val, ok = c.client.Get(key)
 	if !ok {
-		s := set.NewMapSet[any](2 ^ 32 - 1)
-
-		for _, value := range members {
-			s.Add(value)
-		}
-
-		c.client.Add(key, s)
-		return int64(len(s.Keys())), nil
+		result.Val = set.NewMapSet[any](8)
 	}
 
 	s, ok := result.Val.(set.Set[any])
