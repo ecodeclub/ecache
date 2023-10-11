@@ -368,7 +368,7 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
-			wantBool: true,
+			wantBool: false,
 		},
 		{
 			name: "cache 1,add 1,conflict,failed",

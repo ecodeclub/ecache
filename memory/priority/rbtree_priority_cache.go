@@ -17,10 +17,11 @@ package priority
 import (
 	"context"
 	"errors"
-	"github.com/ecodeclub/ekit/queue"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/ecodeclub/ekit/queue"
 
 	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ecache/internal/errs"
@@ -56,7 +57,7 @@ type RBTreePriorityCache struct {
 
 func NewRBTreePriorityCache(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
 	cache, _ := newRBTreePriorityCache(opts...)
-	// todo 自动清理过期缓存的时间间隔暂时先写死1s，后面再考虑怎么暴露出去
+	// todo 自动清理过期缓存的时间间隔，暂时先写死1s，后面再考虑怎么暴露出去
 	go cache.autoClean(time.Second)
 
 	return cache, nil
@@ -134,12 +135,6 @@ func (r *RBTreePriorityCache) SetNX(ctx context.Context, key string, val any, ex
 		return true, nil
 	}
 
-	if node.value == val {
-		node.setExpiration(expiration) //自己的，更新过期时间
-
-		return true, nil
-	}
-
 	if !node.beforeDeadline(time.Now()) {
 		node.replace(val, expiration) //过期的，key一样，直接覆盖
 
@@ -184,8 +179,6 @@ func (r *RBTreePriorityCache) doubleCheckWhenExpire(node *rbTreeCacheNode, now t
 	if !checkNode.beforeDeadline(now) {
 		r.deleteNode(checkNode)
 	}
-
-	return
 }
 
 func (r *RBTreePriorityCache) GetSet(ctx context.Context, key string, val string) ecache.Value {
@@ -231,13 +224,13 @@ func (r *RBTreePriorityCache) LPush(ctx context.Context, key string, val ...any)
 		return 0, errOnlyListCanLPUSH
 	}
 
-	successNum := 0
+	var successNum int64
 	for item := range val {
 		_ = nodeVal.Add(0, item) //这里的error理论上是不会出现的
 		successNum++
 	}
 
-	return int64(successNum), nil
+	return successNum, nil
 }
 
 func (r *RBTreePriorityCache) LPop(ctx context.Context, key string) ecache.Value {
@@ -287,7 +280,7 @@ func (r *RBTreePriorityCache) SAdd(ctx context.Context, key string, members ...a
 		return 0, errOnlySetCanSAdd
 	}
 
-	successNum := 0
+	var successNum int64
 	for _, item := range members {
 		isExist := nodeVal.Exist(item)
 		if !isExist {
@@ -296,7 +289,7 @@ func (r *RBTreePriorityCache) SAdd(ctx context.Context, key string, members ...a
 		}
 	}
 
-	return int64(successNum), nil
+	return successNum, nil
 }
 
 func (r *RBTreePriorityCache) SRem(ctx context.Context, key string, members ...any) ecache.Value {

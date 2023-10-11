@@ -15,9 +15,10 @@
 package priority
 
 import (
+	"time"
+
 	"github.com/ecodeclub/ekit/list"
 	"github.com/ecodeclub/ekit/set"
-	"time"
 
 	"github.com/ecodeclub/ekit"
 )
