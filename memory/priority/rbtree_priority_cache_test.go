@@ -48,12 +48,16 @@ func compareTwoRBTreeClient(src *RBTreePriorityCache, dst *RBTreePriorityCache) 
 		return false
 	}
 
+	src.globalLock.RLock()
 	srcKeys, srcNodes := src.cacheData.KeyValues()
+	src.globalLock.RUnlock()
 	srcKeysMap := make(map[string]*rbTreeCacheNode)
 	for index, item := range srcKeys {
 		srcKeysMap[item] = srcNodes[index]
 	}
+	dst.globalLock.RLock()
 	dstKeys, dstNodes := dst.cacheData.KeyValues()
+	dst.globalLock.RUnlock()
 	dstKeysMap := make(map[string]*rbTreeCacheNode)
 	for index, item := range dstKeys {
 		dstKeysMap[item] = dstNodes[index]
@@ -97,8 +101,12 @@ func compareTwoRBTreeClient(src *RBTreePriorityCache, dst *RBTreePriorityCache) 
 	if src.priorityData.Len() != dst.priorityData.Len() {
 		return false
 	}
+	src.globalLock.Lock()
 	srcTop, _ := src.priorityData.Peek()
+	src.globalLock.Unlock()
+	dst.globalLock.Lock()
 	dstTop, _ := dst.priorityData.Peek()
+	dst.globalLock.Unlock()
 	if srcTop == nil && dstTop == nil {
 		return true
 	}
@@ -132,6 +140,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: "value1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -140,6 +150,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "cache 1,add 1,ok",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -147,6 +159,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				cache.addNode(newKVRBTreeCacheNode("key2", "value2", 0))
 				return cache
@@ -156,6 +170,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "cache 1,add 1,cover",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -163,6 +179,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value2", 0))
 				return cache
 			},
@@ -171,6 +189,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "limit 1,cache 1,add 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -178,6 +198,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key2", "value2", 0))
 				return cache
 			},
@@ -186,6 +208,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "limit 2,cache 2,add 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(2))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", testStructForPriority{priority: 1}, 0))
 				cache.addNode(newKVRBTreeCacheNode("key2", testStructForPriority{priority: 2}, 0))
 				return cache
@@ -194,6 +218,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: testStructForPriority{priority: 3},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(2))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key2", testStructForPriority{priority: 2}, 0))
 				cache.addNode(newKVRBTreeCacheNode("key3", testStructForPriority{priority: 3}, 0))
 				return cache
@@ -203,6 +229,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "limit 2,cache 2,add 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(2))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key2", testStructForPriority{priority: 2}, 0))
 				cache.addNode(newKVRBTreeCacheNode("key1", testStructForPriority{priority: 1}, 0))
 				return cache
@@ -211,6 +239,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: testStructForPriority{priority: 3},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(2))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key2", testStructForPriority{priority: 2}, 0))
 				cache.addNode(newKVRBTreeCacheNode("key3", testStructForPriority{priority: 3}, 0))
 				return cache
@@ -220,6 +250,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "limit 2,cache 2,add 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(2), WithDefaultPriority(5))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				cache.addNode(newKVRBTreeCacheNode("key2", testStructForPriority{priority: 2}, 0))
 				return cache
@@ -228,6 +260,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: testStructForPriority{priority: 3},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(2), WithDefaultPriority(5))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				cache.addNode(newKVRBTreeCacheNode("key3", testStructForPriority{priority: 3}, 0))
 				return cache
@@ -237,6 +271,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "limit 1,cache 1,add 1,evict,cover empty priority queue top",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newKVRBTreeCacheNode("key1", testStructForPriority{priority: 1}, 0)
 				cache.addNode(node1)
 				cache.deleteNode(node1) //模拟删除结点，构造空的优先级队列头
@@ -247,6 +283,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: testStructForPriority{priority: 3},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key3", testStructForPriority{priority: 3}, 0))
 				return cache
 			},
@@ -255,6 +293,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			name: "limit 1,cache 1,add 1,evict,cover heap top nil,should not happen",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newKVRBTreeCacheNode("key1", "value1", 0)
 				_ = cache.cacheData.Add("key1", node1)
 				cache.cacheNum++
@@ -267,6 +307,8 @@ func TestRBTreePriorityCache_Set(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				//上面的bug导致这个结点没被删掉
 				node1 := newKVRBTreeCacheNode("key1", "value1", 0)
 				_ = cache.cacheData.Add("key1", node1)
@@ -332,6 +374,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			value: "value1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -341,6 +385,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			name: "cache 0,add 1,not conflict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -348,6 +394,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				cache.addNode(newKVRBTreeCacheNode("key2", "value2", 0))
 				return cache
@@ -358,6 +406,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			name: "cache 1,add 1,conflict,self",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -365,6 +415,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			value: "value1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -374,6 +426,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			name: "cache 1,add 1,conflict,failed",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -381,6 +435,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -390,6 +446,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			name: "cache 1,add 1,conflict,expired",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", -time.Minute))
 				return cache
 			},
@@ -397,6 +455,8 @@ func TestRBTreePriorityCache_SetNX(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value2", 0))
 				return cache
 			},
@@ -442,12 +502,16 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 			name: "cache 1,miss",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
 			key: "key2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -457,12 +521,16 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 			name: "cache 1,hit",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
 			key: "key1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -472,6 +540,8 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 			name: "cache num 1,hit,expire",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", -time.Minute))
 				return cache
 			},
@@ -486,6 +556,8 @@ func TestRBTreePriorityCache_Get(t *testing.T) {
 			name: "cache 1,hit,not expire",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -522,12 +594,16 @@ func TestRBTreePriorityCache_doubleCheckInGet(t *testing.T) {
 			name: "key not deleted by other thread",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", -time.Minute))
 				return cache
 			},
 			node: newKVRBTreeCacheNode("key1", "value1", -time.Minute),
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newKVRBTreeCacheNode("key1", "value1", -time.Minute)
 				cache.addNode(node1)
 				cache.deleteNode(node1)
@@ -576,6 +652,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			value: "value1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -585,6 +663,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			name: "cache 1,miss,add 1",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				cache.cacheNum++
 				return cache
@@ -593,6 +673,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				cache.addNode(newKVRBTreeCacheNode("key2", "value2", 0))
 				return cache
@@ -603,6 +685,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			name: "cache 1,hit",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -610,6 +694,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value2", 0))
 				return cache
 			},
@@ -619,6 +705,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			name: "cache 1,hit,expired",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", -time.Minute))
 				return cache
 			},
@@ -626,6 +714,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value2", 0))
 				return cache
 			},
@@ -635,6 +725,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			name: "limit 1,cache 1,miss,add 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -642,6 +734,8 @@ func TestRBTreePriorityCache_GetSet(t *testing.T) {
 			value: "value2",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key2", "value2", 0))
 				return cache
 			},
@@ -682,6 +776,8 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 			value: []any{"value1"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				node1 := newListRBTreeCacheNode("key1")
@@ -695,6 +791,8 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 			name: "cache 1,item 1,push 1",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				node1 := newListRBTreeCacheNode("key1")
@@ -706,6 +804,8 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 			value: []any{"value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				_ = valList.Append("value2")
@@ -726,6 +826,8 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 			value: []any{"value1", "value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				_ = valList.Append("value2")
@@ -740,6 +842,8 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 			name: "limit 1,cache 1,push 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				node1 := newListRBTreeCacheNode("key1")
@@ -751,6 +855,8 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 			value: []any{"value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value2")
 				node1 := newListRBTreeCacheNode("key2")
@@ -764,12 +870,16 @@ func TestRBTreePriorityCache_LPush(t *testing.T) {
 			name: "wrong type",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
 			key: "key1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -816,6 +926,8 @@ func TestRBTreePriorityCache_LPop(t *testing.T) {
 			name: "cache 1,item 1,pop 1,delete node",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				node1 := newListRBTreeCacheNode("key1")
@@ -826,6 +938,8 @@ func TestRBTreePriorityCache_LPop(t *testing.T) {
 			key: "key1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newListRBTreeCacheNode("key1")
 				cache.addNode(node1)
 				cache.deleteNode(node1)
@@ -837,6 +951,8 @@ func TestRBTreePriorityCache_LPop(t *testing.T) {
 			name: "cache 1,item 2,pop 1",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				_ = valList.Append("value2")
@@ -848,6 +964,8 @@ func TestRBTreePriorityCache_LPop(t *testing.T) {
 			key: "key1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valList := list.NewLinkedList[any]()
 				_ = valList.Append("value1")
 				node1 := newListRBTreeCacheNode("key1")
@@ -861,12 +979,16 @@ func TestRBTreePriorityCache_LPop(t *testing.T) {
 			name: "wrong type",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
 			key: "key1",
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -907,6 +1029,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			values: []any{"value1"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -920,6 +1044,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			name: "cache 1,add 1,not repeat",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -931,6 +1057,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			values: []any{"value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
@@ -945,6 +1073,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			name: "cache 1,add 1,repeat",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -956,6 +1086,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			values: []any{"value1"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -975,6 +1107,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			values: []any{"value1", "value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
@@ -989,6 +1123,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			name: "limit 1,cache 1,add 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -1000,6 +1136,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			values: []any{"value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value2")
 				node1 := newSetRBTreeCacheNode("key2", mapSetInitSize)
@@ -1013,6 +1151,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			name: "wrong type",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -1020,6 +1160,8 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 			values: []any{"value1"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -1070,6 +1212,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			name: "cache 1,item 1,rem 1,hit,delete node",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -1081,6 +1225,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			values: []any{"value1"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -1095,6 +1241,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			name: "cache 1,item 1,rem 1,miss",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -1106,6 +1254,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			values: []any{"value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
@@ -1119,6 +1269,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			name: "cache 1,item 2,rem 2,hit 2",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
@@ -1131,6 +1283,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			values: []any{"value1", "value2"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				valSet1 := set.NewMapSet[any](mapSetInitSize)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
@@ -1146,6 +1300,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			name: "wrong type",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -1153,6 +1309,8 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 			values: []any{"value1"},
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -1194,6 +1352,8 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(1)
 				cache.addNode(node1)
@@ -1205,6 +1365,8 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			name: "cache 1,hit,value add 1",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(1)
 				cache.addNode(node1)
@@ -1214,6 +1376,8 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(2)
 				cache.addNode(node1)
@@ -1225,6 +1389,8 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			name: "limit 1,cache 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(1)
 				cache.addNode(node1)
@@ -1234,6 +1400,8 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key2")
 				node1.value = int64(1)
 				cache.addNode(node1)
@@ -1245,6 +1413,8 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			name: "wrong type",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -1252,6 +1422,8 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -1292,6 +1464,8 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(-1)
 				cache.addNode(node1)
@@ -1303,6 +1477,8 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 			name: "cache 1,hit,value decr 1",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(1)
 				cache.addNode(node1)
@@ -1312,6 +1488,8 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(0)
 				cache.addNode(node1)
@@ -1323,6 +1501,8 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 			name: "limit 1,cache 1,evict",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key1")
 				node1.value = int64(1)
 				cache.addNode(node1)
@@ -1332,6 +1512,8 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				node1 := newIntRBTreeCacheNode("key2")
 				node1.value = int64(-1)
 				cache.addNode(node1)
@@ -1343,6 +1525,8 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 			name: "wrong type",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
@@ -1350,6 +1534,8 @@ func TestRBTreePriorityCache_DecrBy(t *testing.T) {
 			value: 1,
 			wantCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
