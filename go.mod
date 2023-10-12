@@ -3,7 +3,7 @@ module github.com/ecodeclub/ecache
 go 1.20
 
 require (
-	github.com/ecodeclub/ekit v0.0.8
+	github.com/ecodeclub/ekit v0.0.8-0.20230925161647-c5bfbd460261
 	github.com/redis/go-redis/v9 v9.1.0
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/mock v0.2.0
