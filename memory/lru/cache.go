@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ecodeclub/ekit/set"
+
 	"github.com/ecodeclub/ekit/list"
 
 	"github.com/ecodeclub/ecache"
@@ -138,7 +140,7 @@ func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error
 	result.Val, ok = c.client.Get(key)
 	if !ok {
 		l := &list.ConcurrentList[ecache.Value]{
-			List: list.NewLinkedListOf[ecache.Value](c.anySliceToValueSlice(val)),
+			List: list.NewLinkedListOf[ecache.Value](c.anySliceToValueSlice(val...)),
 		}
 		c.client.Add(key, l)
 		return int64(l.Len()), nil
@@ -188,12 +190,56 @@ func (c *Cache) LPop(ctx context.Context, key string) (val ecache.Value) {
 }
 
 func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, error) {
-	// TODO
-	return 0, nil
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var (
+		ok     bool
+		result = ecache.Value{}
+	)
+	result.Val, ok = c.client.Get(key)
+	if !ok {
+		result.Val = set.NewMapSet[any](8)
+	}
+
+	s, ok := result.Val.(set.Set[any])
+	if !ok {
+		return 0, errors.New("当前key已存在不是set类型")
+	}
+
+	for _, value := range members {
+		s.Add(value)
+	}
+	c.client.Add(key, s)
+
+	return int64(len(s.Keys())), nil
 }
 
 func (c *Cache) SRem(ctx context.Context, key string, members ...any) (val ecache.Value) {
-	// TODO
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	result, ok := c.client.Get(key)
+	if !ok {
+		val.Err = errs.ErrKeyNotExist
+		return
+	}
+
+	s, ok := result.(set.Set[any])
+	if !ok {
+		val.Err = errors.New("当前key已存在不是set类型")
+		return
+	}
+
+	var rems = make([]any, 0, cap(members))
+	for _, member := range members {
+		if s.Exist(member) {
+			rems = append(rems, member)
+			s.Delete(member)
+		}
+	}
+
+	val.Val = rems
 	return
 }
 
