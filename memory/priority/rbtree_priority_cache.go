@@ -433,18 +433,15 @@ func (r *RBTreePriorityCache) autoClean(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			r.globalLock.RLock()
-			_, values := r.cacheData.KeyValues()
-			r.globalLock.RUnlock()
+	for range ticker.C {
+		r.globalLock.RLock()
+		_, values := r.cacheData.KeyValues()
+		r.globalLock.RUnlock()
 
-			now := time.Now()
-			for _, value := range values {
-				if !value.beforeDeadline(now) {
-					r.doubleCheckWhenExpire(value, now)
-				}
+		now := time.Now()
+		for _, value := range values {
+			if !value.beforeDeadline(now) {
+				r.doubleCheckWhenExpire(value, now)
 			}
 		}
 	}
