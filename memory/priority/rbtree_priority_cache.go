@@ -40,12 +40,6 @@ var (
 	errOnlyNumCanDecrBy = errors.New("ecache: 只有数字类型的数据，才能执行 DecrBy")
 )
 
-var (
-	// todo 这两个变量没有想到更好办法处理，如果外部不调用option进行设置，最后还是需要内部定义一个默认值
-	priorityQueueInitSize = 8 //优先级队列的初始大小
-	mapSetInitSize        = 8 //缓存结点中set.MapSet的初始大小
-)
-
 type RBTreePriorityCache struct {
 	globalLock      *sync.RWMutex                          //内部全局读写锁，保护缓存数据和优先级数据
 	cacheData       *tree.RBTree[string, *rbTreeCacheNode] //缓存数据
@@ -53,31 +47,41 @@ type RBTreePriorityCache struct {
 	cacheLimit      int                                    //键值对数量限制，默认MaxInt32，约等于没有限制
 	priorityData    *queue.PriorityQueue[*rbTreeCacheNode] //优先级数据
 	defaultPriority int                                    //默认优先级
+	cleanInterval   time.Duration
+	// 集合类型的值的初始化容量
+	collectionCap int
 }
 
 func NewRBTreePriorityCache(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
 	cache, _ := newRBTreePriorityCache(opts...)
-	// todo 自动清理过期缓存的时间间隔，暂时先写死1s，后面再考虑怎么暴露出去
-	go cache.autoClean(time.Second)
-
+	go cache.autoClean()
 	return cache, nil
 }
 
 func newRBTreePriorityCache(opts ...option.Option[RBTreePriorityCache]) (*RBTreePriorityCache, error) {
 	rbTree, _ := tree.NewRBTree[string, *rbTreeCacheNode](comparatorRBTreeCacheNodeByKey())
-	priorityQueue := queue.NewPriorityQueue[*rbTreeCacheNode](priorityQueueInitSize, comparatorRBTreeCacheNodeByPriority())
+
+	const (
+		priorityQueueDefaultSize = 8 //优先级队列的初始大小
+		collectionDefaultCap     = 8 //缓存结点中set.MapSet的初始大小
+	)
+	priorityQueue := queue.NewPriorityQueue[*rbTreeCacheNode](priorityQueueDefaultSize, comparatorRBTreeCacheNodeByPriority())
 	cache := &RBTreePriorityCache{
 		globalLock:   &sync.RWMutex{},
 		cacheData:    rbTree,
 		cacheNum:     0,
 		cacheLimit:   math.MaxInt32,
 		priorityData: priorityQueue,
+		// 暂时设置为一秒间隔
+		cleanInterval: time.Second,
+		collectionCap: collectionDefaultCap,
 	}
 	option.Apply(cache, opts...)
 
 	return cache, nil
 }
 
+// WithCacheLimit 设置所允许的最大键值对数量
 func WithCacheLimit(cacheLimit int) option.Option[RBTreePriorityCache] {
 	return func(opt *RBTreePriorityCache) {
 		opt.cacheLimit = cacheLimit
@@ -90,7 +94,7 @@ func WithDefaultPriority(priority int) option.Option[RBTreePriorityCache] {
 	}
 }
 
-func (r *RBTreePriorityCache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
+func (r *RBTreePriorityCache) Set(_ context.Context, key string, val any, expiration time.Duration) error {
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
@@ -101,11 +105,9 @@ func (r *RBTreePriorityCache) Set(ctx context.Context, key string, val any, expi
 		}
 		node = newKVRBTreeCacheNode(key, val, expiration)
 		r.addNode(node)
-
 		return nil
 	}
 	node.replace(val, expiration)
-
 	return nil
 }
 
@@ -271,7 +273,7 @@ func (r *RBTreePriorityCache) SAdd(ctx context.Context, key string, members ...a
 		if r.isFull() {
 			r.deleteNodeByPriority()
 		}
-		node = newSetRBTreeCacheNode(key, mapSetInitSize)
+		node = newSetRBTreeCacheNode(key, r.collectionCap)
 		r.addNode(node)
 	}
 
@@ -292,27 +294,21 @@ func (r *RBTreePriorityCache) SAdd(ctx context.Context, key string, members ...a
 	return successNum, nil
 }
 
-func (r *RBTreePriorityCache) SRem(ctx context.Context, key string, members ...any) ecache.Value {
+func (r *RBTreePriorityCache) SRem(_ context.Context, key string, members ...any) (int64, error) {
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	var retVal ecache.Value
-
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
-		retVal.Err = errs.ErrKeyNotExist
-
-		return retVal
+		return 0, errs.ErrKeyNotExist
 	}
 
 	nodeVal, ok := node.value.(*set.MapSet[any])
 	if !ok {
-		retVal.Err = errOnlySetCanSRem
-
-		return retVal
+		return 0, errOnlySetCanSRem
 	}
 
-	successNum := 0
+	var successNum int64
 	for _, item := range members {
 		isExist := nodeVal.Exist(item)
 		if isExist {
@@ -320,13 +316,11 @@ func (r *RBTreePriorityCache) SRem(ctx context.Context, key string, members ...a
 			successNum++
 		}
 	}
-	retVal.Val = int64(successNum)
 
 	if len(nodeVal.Keys()) == 0 {
 		r.deleteNode(node) //如果集合为空，删除缓存结点
 	}
-
-	return retVal
+	return successNum, nil
 }
 
 func (r *RBTreePriorityCache) IncrBy(ctx context.Context, key string, value int64) (int64, error) {
@@ -384,7 +378,7 @@ func (r *RBTreePriorityCache) calculatePriority(node *rbTreeCacheNode) int {
 	//如果实现了Priority接口，那么就用接口的方法获取优先级权重
 	val, ok := node.value.(Priority)
 	if ok {
-		priority = val.GetPriority()
+		priority = val.Priority()
 	}
 
 	return priority
@@ -429,10 +423,9 @@ func (r *RBTreePriorityCache) deleteNodeByPriority() {
 }
 
 // autoClean 自动清理过期缓存
-func (r *RBTreePriorityCache) autoClean(interval time.Duration) {
-	ticker := time.NewTicker(interval)
+func (r *RBTreePriorityCache) autoClean() {
+	ticker := time.NewTicker(r.cleanInterval)
 	defer ticker.Stop()
-
 	for range ticker.C {
 		r.globalLock.RLock()
 		_, values := r.cacheData.KeyValues()

@@ -583,9 +583,9 @@ func TestCache_SRem(t *testing.T) {
 			defer ctrl.Finish()
 
 			c := NewCache(tc.mock(ctrl))
-			result := c.SRem(context.Background(), tc.key, tc.val...)
-			assert.Equal(t, result.Val, tc.wantVal)
-			assert.Equal(t, result.Err, tc.wantErr)
+			result, err := c.SRem(context.Background(), tc.key, tc.val...)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantVal, result)
 		})
 	}
 }

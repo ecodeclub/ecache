@@ -17,7 +17,6 @@ package lru
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
@@ -614,9 +613,10 @@ func TestCache_SRem(t *testing.T) {
 		before func(t *testing.T)
 		after  func(t *testing.T)
 
-		key     string
-		val     []any
-		wantVal []any
+		key string
+		val []any
+
+		wantVal int64
 		wantErr error
 	}{
 		{
@@ -634,7 +634,7 @@ func TestCache_SRem(t *testing.T) {
 			},
 			key:     "test",
 			val:     []any{"hello world"},
-			wantVal: []any{"hello world"},
+			wantVal: 1,
 		},
 		{
 			name: "srem value ignore",
@@ -649,7 +649,7 @@ func TestCache_SRem(t *testing.T) {
 			},
 			key:     "test",
 			val:     []any{"hello ecache"},
-			wantVal: []any{},
+			wantVal: 0,
 		},
 		{
 			name:    "srem value nil",
@@ -675,21 +675,15 @@ func TestCache_SRem(t *testing.T) {
 
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
+			defer tc.after(t)
 			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFunc()
 			c := NewCache(lru)
 
 			tc.before(t)
-			val := c.SRem(ctx, tc.key, tc.val...)
-			defer tc.after(t)
-			if val.Err != nil {
-				assert.Equal(t, tc.wantErr, val.Err)
-				return
-			}
-
-			result, ok := val.Val.([]any)
-			assert.Equal(t, true, ok)
-			assert.Equal(t, true, reflect.DeepEqual(tc.wantVal, result))
+			val, err := c.SRem(ctx, tc.key, tc.val...)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantVal, val)
 		})
 	}
 }
