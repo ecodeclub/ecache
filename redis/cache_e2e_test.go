@@ -577,9 +577,9 @@ func TestCache_e2e_SRem(t *testing.T) {
 			defer cancelFunc()
 			c := NewCache(rdb)
 			tc.before(ctx, t)
-			val := c.SRem(ctx, tc.key, tc.val...)
-			assert.Equal(t, val.Val, tc.wantVal)
-			assert.Equal(t, val.Err, tc.wantErr)
+			val, err := c.SRem(ctx, tc.key, tc.val...)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantVal, val)
 			tc.after(ctx, t)
 		})
 	}

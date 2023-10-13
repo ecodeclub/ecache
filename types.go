@@ -23,14 +23,12 @@ import (
 	"github.com/ecodeclub/ekit"
 )
 
-var (
-	ErrKeyNeverExpireNotSupported = errors.New("不支持key永不过期")
-)
-
 type Cache interface {
-	// Set 设置一个键值对，并且设置过期时间,当过期时间为0时,表示永不过期
+	// Set 设置一个键值对，并且设置过期时间.
+	// 当过期时间为0时,表示永不过期
 	Set(ctx context.Context, key string, val any, expiration time.Duration) error
-	// SetNX 设置一个键值对如果key不存在则写入反之失败，并且设置过期时间.当过期时间为0时,表示永不过期
+	// SetNX 设置一个键值对如果key不存在则写入反之失败，并且设置过期时间.
+	// 当过期时间为0时,表示永不过期
 	SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error)
 	// Get 返回一个 Value
 	// 如果你需要检测 Err，可以使用 Value.Err
@@ -49,12 +47,16 @@ type Cache interface {
 	// SAdd 命令将一个或多个成员元素加入到集合中，已经存在于集合的成员元素将被忽略。
 	SAdd(ctx context.Context, key string, members ...any) (int64, error)
 	// SRem 移除集合中的一个或多个成员元素，不存在的成员元素会被忽略。
-	SRem(ctx context.Context, key string, members ...any) Value
+	// 返回最终删除了多少个原色
+	SRem(ctx context.Context, key string, members ...any) (int64, error)
 	// IncrBy 设置一个key并自增 1 或者指定的值
+	// 返回增加后的值
 	IncrBy(ctx context.Context, key string, value int64) (int64, error)
 	// DecrBy 将 key 中储存的数字值减一
+	// 返回减少后的值
 	DecrBy(ctx context.Context, key string, value int64) (int64, error)
 	// IncrByFloat 为 key 中所储存的值加上指定的浮点数增量值。
+	// 返回增加后的值
 	IncrByFloat(ctx context.Context, key string, value float64) (float64, error)
 }
 

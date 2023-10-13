@@ -215,32 +215,28 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	return int64(len(s.Keys())), nil
 }
 
-func (c *Cache) SRem(ctx context.Context, key string, members ...any) (val ecache.Value) {
+func (c *Cache) SRem(ctx context.Context, key string, members ...any) (int64, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	result, ok := c.client.Get(key)
 	if !ok {
-		val.Err = errs.ErrKeyNotExist
-		return
+		return 0, errs.ErrKeyNotExist
 	}
 
 	s, ok := result.(set.Set[any])
 	if !ok {
-		val.Err = errors.New("当前key已存在不是set类型")
-		return
+		return 0, errors.New("当前key已存在不是set类型")
 	}
 
-	var rems = make([]any, 0, cap(members))
+	var rems int64
 	for _, member := range members {
 		if s.Exist(member) {
-			rems = append(rems, member)
 			s.Delete(member)
+			rems++
 		}
 	}
-
-	val.Val = rems
-	return
+	return rems, nil
 }
 
 func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, error) {

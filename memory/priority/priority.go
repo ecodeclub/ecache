@@ -16,6 +16,6 @@ package priority
 
 // Priority 如果传进来的元素没有实现该接口，则默认优先级为0
 type Priority interface {
-	// GetPriority 获取元素的优先级
-	GetPriority() int
+	// Priority 获取元素的优先级
+	Priority() int
 }

@@ -32,7 +32,7 @@ type testStructForPriority struct {
 	priority int
 }
 
-func (ts testStructForPriority) GetPriority() int {
+func (ts testStructForPriority) Priority() int {
 	return ts.priority
 }
 
@@ -1031,9 +1031,9 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1046,9 +1046,9 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1059,10 +1059,10 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1075,9 +1075,9 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1088,9 +1088,9 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1109,10 +1109,10 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1125,9 +1125,9 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1138,9 +1138,9 @@ func TestRBTreePriorityCache_SAdd(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache(WithCacheLimit(1))
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value2")
-				node1 := newSetRBTreeCacheNode("key2", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key2", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1214,9 +1214,9 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1227,9 +1227,9 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				cache.deleteNode(node1)
@@ -1243,9 +1243,9 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1256,9 +1256,9 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1271,10 +1271,10 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				return cache
@@ -1285,10 +1285,10 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
 				defer cache.globalLock.Unlock()
-				valSet1 := set.NewMapSet[any](mapSetInitSize)
+				valSet1 := set.NewMapSet[any](8)
 				valSet1.Add("value1")
 				valSet1.Add("value2")
-				node1 := newSetRBTreeCacheNode("key1", mapSetInitSize)
+				node1 := newSetRBTreeCacheNode("key1", 8)
 				node1.value = valSet1
 				cache.addNode(node1)
 				cache.deleteNode(node1)
@@ -1321,13 +1321,10 @@ func TestRBTreePriorityCache_SRem(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			startCache := tc.startCache()
-			value := startCache.SRem(context.Background(), tc.key, tc.values...)
-			assert.Equal(t, tc.wantErr, value.Err)
-			if value.Err != nil {
-				return
-			}
-			assert.Equal(t, tc.wantRet, value.Val)
-			assert.Equal(t, true, compareTwoRBTreeClient(startCache, tc.wantCache()))
+			value, err := startCache.SRem(context.Background(), tc.key, tc.values...)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantRet, value)
+			assert.True(t, compareTwoRBTreeClient(startCache, tc.wantCache()))
 		})
 	}
 }

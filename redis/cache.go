@@ -78,9 +78,8 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	return c.client.SAdd(ctx, key, members...).Result()
 }
 
-func (c *Cache) SRem(ctx context.Context, key string, members ...any) (result ecache.Value) {
-	result.Val, result.Err = c.client.SRem(ctx, key, members...).Result()
-	return
+func (c *Cache) SRem(ctx context.Context, key string, members ...any) (int64, error) {
+	return c.client.SRem(ctx, key, members...).Result()
 }
 
 func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, error) {
