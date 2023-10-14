@@ -5,6 +5,7 @@ import (
 	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/ecodeclub/ekit"
+	"github.com/ecodeclub/ekit/queue"
 	"sync"
 	"time"
 )
@@ -17,7 +18,7 @@ func WithCapacity(cap int) Option {
 	}
 }
 
-func WithComparator(comparator Comparator[Node]) Option {
+func WithComparator(comparator ekit.Comparator[*Node]) Option {
 	return func(c *Cache) {
 		c.comparator = comparator
 	}
@@ -35,9 +36,22 @@ func NewCache(opts ...Option) ecache.Cache {
 	defaultScanCount := 1000
 	defaultExpiration := 30 * time.Second
 
+	// defaultComparator 默认比较器 按节点的过期时间进行比较
+	defaultComparator := func(src, dest *Node) int {
+		if src.Dl.Before(dest.Dl) {
+			return -1
+		}
+
+		if src.Dl.After(dest.Dl) {
+			return 1
+		}
+
+		return 0
+	}
+
 	cache := &Cache{
 		index:             make(map[string]*Node),
-		comparator:        defaultComparator{},
+		comparator:        defaultComparator,
 		cap:               defaultCap,
 		cleanInterval:     defaultCleanInterval,
 		scanCount:         defaultScanCount,
@@ -48,39 +62,23 @@ func NewCache(opts ...Option) ecache.Cache {
 		opt(cache)
 	}
 
-	cache.pq = NewQueueWithHeap[Node](cache.comparator)
+	cache.pq = queue.NewPriorityQueue[*Node](defaultCap, cache.comparator)
 
 	go cache.clean()
 
 	return cache
 }
 
-// defaultComparator 默认比较器 按节点的过期时间进行比较
-type defaultComparator struct {
-}
-
-func (d defaultComparator) Compare(src, dest *Node) int {
-	if src.Dl.Before(dest.Dl) {
-		return -1
-	}
-
-	if src.Dl.After(dest.Dl) {
-		return 1
-	}
-
-	return 0
-}
-
 type Cache struct {
-	index             map[string]*Node // 用于存储数据的索引，方便快速查找
-	pq                Queue[Node]      // 优先级队列，用于存储数据
-	comparator        Comparator[Node] // 比较器
-	mu                sync.RWMutex     // 读写锁
-	cap               int              // 容量
-	len               int              // 当前队列长度
-	cleanInterval     time.Duration    // 清理过期数据的时间间隔
-	scanCount         int              // 扫描次数
-	closeC            chan struct{}    // 关闭信号
+	index             map[string]*Node            // 用于存储数据的索引，方便快速查找
+	pq                *queue.PriorityQueue[*Node] // 优先级队列，用于存储数据
+	comparator        ekit.Comparator[*Node]      // 比较器
+	mu                sync.RWMutex                // 读写锁
+	cap               int                         // 容量
+	len               int                         // 当前队列长度
+	cleanInterval     time.Duration               // 清理过期数据的时间间隔
+	scanCount         int                         // 扫描次数
+	closeC            chan struct{}               // 关闭信号
 	defaultExpiration time.Duration
 }
 
@@ -101,7 +99,7 @@ func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Du
 }
 
 func (c *Cache) add(ctx context.Context, key string, val any, expiration time.Duration) {
-	c.checkCapacityAndDisuse(ctx)
+	c.checkCapacityAndDisuse()
 
 	node := &Node{
 		Key: key,
@@ -109,20 +107,31 @@ func (c *Cache) add(ctx context.Context, key string, val any, expiration time.Du
 		Dl:  time.Now().Add(expiration),
 	}
 
-	_ = c.pq.Push(ctx, node)
+	_ = c.pq.Enqueue(node)
 
 	c.index[key] = node
 	c.len++
 }
 
-func (c *Cache) checkCapacityAndDisuse(ctx context.Context) {
+func (c *Cache) checkCapacityAndDisuse() {
 	if c.len >= c.cap {
-		// 淘汰优先级最低的数据
-		node, _ := c.pq.Pop(ctx)
-		// 删除索引
-		delete(c.index, node.Key)
-		c.len--
+		// 先淘汰堆顶元素，保证有足够的空间插入新数据
+		c.disuse()
+
+		// 看下堆顶元素是否是否被标记删除，如果是，则删除
+		for top, _ := c.pq.Peek(); top.isDel; top, _ = c.pq.Peek() {
+			c.disuse()
+		}
+
 	}
+}
+
+func (c *Cache) disuse() {
+	// 淘汰优先级最低的数据
+	node, _ := c.pq.Dequeue()
+	// 删除索引
+	delete(c.index, node.Key)
+	c.len--
 }
 
 func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
@@ -197,6 +206,25 @@ func (c *Cache) GetSet(ctx context.Context, key string, val string) ecache.Value
 
 }
 
+func (c *Cache) Delete(ctx context.Context, key ...string) (int64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var count int64
+
+	for _, k := range key {
+		// 这里其实还要考虑过期的情况，如果过期了，是否要计入删除的数量
+		// 这里暂时不考虑过期的情况
+		if node, ok := c.index[k]; ok {
+			c.delete(node)
+			c.len--
+			count++
+		}
+	}
+
+	return count, nil
+}
+
 func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error) {
 	//TODO implement me
 	panic("implement me")
@@ -212,7 +240,7 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	panic("implement me")
 }
 
-func (c *Cache) SRem(ctx context.Context, key string, members ...any) ecache.Value {
+func (c *Cache) SRem(ctx context.Context, key string, members ...any) (int64, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -268,21 +296,14 @@ func (c *Cache) scan() {
 }
 
 func (c *Cache) delete(n *Node) {
-	_ = c.pq.Remove(context.Background(), n)
+	// 标记删除
+	n.isDel = true
 	delete(c.index, n.Key)
 }
 
 type Node struct {
-	Key string
-	Val any
-	Dl  time.Time // 过期时间
-	idx int
-}
-
-func (n *Node) Index() int {
-	return n.idx
-}
-
-func (n *Node) SetIndex(idx int) {
-	n.idx = idx
+	Key   string
+	Val   any
+	Dl    time.Time // 过期时间
+	isDel bool
 }
