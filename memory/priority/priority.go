@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package priority
 
-type Cache struct {
+// Priority 如果传进来的元素没有实现该接口，则默认优先级为0
+type Priority interface {
+	// Priority 获取元素的优先级
+	Priority() int
 }
