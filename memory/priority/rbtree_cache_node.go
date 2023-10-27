@@ -62,6 +62,13 @@ func newIntRBTreeCacheNode(key string) *rbTreeCacheNode {
 	}
 }
 
+func newFloatRBTreeCacheNode(key string) *rbTreeCacheNode {
+	return &rbTreeCacheNode{
+		key:   key,
+		value: float64(0),
+	}
+}
+
 // setExpiration 设置有效期
 func (node *rbTreeCacheNode) setExpiration(expiration time.Duration) {
 	var deadline time.Time
@@ -69,6 +76,11 @@ func (node *rbTreeCacheNode) setExpiration(expiration time.Duration) {
 		deadline = time.Now().Add(expiration)
 	}
 	node.deadline = deadline
+}
+
+// setExpiration 设置有效期
+func (node *rbTreeCacheNode) setPriority(priority int) {
+	node.priority = priority
 }
 
 // replace 重新设置缓存结点的value和有效期

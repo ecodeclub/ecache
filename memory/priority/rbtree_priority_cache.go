@@ -347,6 +347,96 @@ func (r *RBTreePriorityCache) IncrBy(ctx context.Context, key string, value int6
 	return newVal, nil
 }
 
+func (r *RBTreePriorityCache) IncrByFloat(ctx context.Context, key string, value float64) (float64, error) {
+	r.globalLock.Lock()
+	defer r.globalLock.Unlock()
+
+	node, cacheErr := r.cacheData.Find(key)
+	if cacheErr != nil {
+		if r.isFull() {
+			r.deleteNodeByPriority()
+		}
+		node = newFloatRBTreeCacheNode(key)
+		r.addNode(node)
+	}
+
+	nodeVal, ok := node.value.(float64)
+	if !ok {
+		//如果是int类型可以尝试转换
+		intNodeVal, ok := node.value.(int64)
+		if !ok {
+			return 0, errOnlyNumCanIncrBy
+		}
+		nodeVal = float64(intNodeVal)
+	}
+
+	newVal := nodeVal + value
+	node.value = newVal
+
+	return newVal, nil
+}
+
+func (r *RBTreePriorityCache) Delete(ctx context.Context, keys ...string) (int64, error) {
+	delCount := int64(0)
+	now := time.Now()
+	for _, key := range keys {
+		r.globalLock.RLock()
+		_, cacheErr := r.cacheData.Find(key)
+		r.globalLock.RUnlock()
+		if cacheErr != nil {
+			continue
+		}
+
+		r.globalLock.Lock()
+		node, cacheErr := r.cacheData.Find(key)
+		if cacheErr != nil {
+			r.globalLock.Unlock()
+			continue
+		}
+
+		// 过期删除不添加计数
+		if !node.beforeDeadline(now) {
+			r.deleteNode(node)
+			r.globalLock.Unlock()
+			continue
+		}
+
+		r.deleteNode(node)
+		r.globalLock.Unlock()
+		delCount++
+	}
+	return delCount, nil
+}
+
+// UpdatePriority 更新缓存对象的优先级
+func (r *RBTreePriorityCache) UpdatePriority(ctx context.Context, key string, priority int) (bool, error) {
+	r.globalLock.RLock()
+	_, err := r.cacheData.Find(key)
+	r.globalLock.RUnlock()
+	if err != nil {
+		return false, errs.ErrKeyNotExist
+	}
+
+	r.globalLock.Lock()
+	defer r.globalLock.Unlock()
+	originNode, err := r.cacheData.Find(key)
+	if err != nil {
+		return false, errs.ErrKeyNotExist
+	}
+	//数据结构暂时不支持修改优先级后重新排序
+	//通过删除旧节点再新增节点触发优先级修改
+	//此处拷贝暂时不需要deepcopy
+	nodeCopy := *originNode
+	nodeCopy.setPriority(priority)
+
+	r.cacheData.Delete(originNode.key)
+	originNode.truncate()
+
+	_ = r.cacheData.Add(nodeCopy.key, &nodeCopy)
+	_ = r.priorityData.Enqueue(&nodeCopy)
+	return true, nil
+}
+
 func (r *RBTreePriorityCache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
