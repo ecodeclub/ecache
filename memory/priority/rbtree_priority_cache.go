@@ -98,15 +98,8 @@ func (r *RBTreePriorityCache) Set(_ context.Context, key string, val any, expira
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node, cacheErr := r.cacheData.Find(key)
-	if cacheErr != nil {
-		if r.isFull() {
-			r.deleteNodeByPriority()
-		}
-		node = newKVRBTreeCacheNode(key, val, expiration)
-		r.addNode(node)
-		return nil
-	}
+	node := r.findOrCreateNode(key, val)
+
 	node.replace(val, expiration)
 	return nil
 }
@@ -212,15 +205,7 @@ func (r *RBTreePriorityCache) LPush(ctx context.Context, key string, val ...any)
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node, cacheErr := r.cacheData.Find(key)
-	if cacheErr != nil {
-		if r.isFull() {
-			r.deleteNodeByPriority()
-		}
-		node = newListRBTreeCacheNode(key)
-		r.addNode(node)
-	}
-
+	node := r.findOrCreateNode(key, list.NewLinkedList[any]())
 	nodeVal, ok := node.value.(*list.LinkedList[any])
 	if !ok {
 		return 0, errOnlyListCanLPUSH
@@ -268,15 +253,7 @@ func (r *RBTreePriorityCache) SAdd(ctx context.Context, key string, members ...a
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node, cacheErr := r.cacheData.Find(key)
-	if cacheErr != nil {
-		if r.isFull() {
-			r.deleteNodeByPriority()
-		}
-		node = newSetRBTreeCacheNode(key, r.collectionCap)
-		r.addNode(node)
-	}
-
+	node := r.findOrCreateNode(key, set.NewMapSet[any](r.collectionCap))
 	nodeVal, ok := node.value.(*set.MapSet[any])
 	if !ok {
 		return 0, errOnlySetCanSAdd
@@ -327,14 +304,7 @@ func (r *RBTreePriorityCache) IncrBy(ctx context.Context, key string, value int6
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node, cacheErr := r.cacheData.Find(key)
-	if cacheErr != nil {
-		if r.isFull() {
-			r.deleteNodeByPriority()
-		}
-		node = newIntRBTreeCacheNode(key)
-		r.addNode(node)
-	}
+	node := r.findOrCreateNode(key, int64(0))
 
 	nodeVal, ok := node.value.(int64)
 	if !ok {
@@ -351,15 +321,7 @@ func (r *RBTreePriorityCache) IncrByFloat(ctx context.Context, key string, value
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node, cacheErr := r.cacheData.Find(key)
-	if cacheErr != nil {
-		if r.isFull() {
-			r.deleteNodeByPriority()
-		}
-		node = newFloatRBTreeCacheNode(key)
-		r.addNode(node)
-	}
-
+	node := r.findOrCreateNode(key, float64(0))
 	nodeVal, ok := node.value.(float64)
 	if !ok {
 		//如果是int类型可以尝试转换
@@ -408,8 +370,38 @@ func (r *RBTreePriorityCache) Delete(ctx context.Context, keys ...string) (int64
 	return delCount, nil
 }
 
-// UpdatePriority 更新缓存对象的优先级
-func (r *RBTreePriorityCache) UpdatePriority(ctx context.Context, key string, priority int) (bool, error) {
+func (r *RBTreePriorityCache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
+	r.globalLock.Lock()
+	defer r.globalLock.Unlock()
+
+	node := r.findOrCreateNode(key, int64(0))
+
+	nodeVal, ok := node.value.(int64)
+	if !ok {
+		return 0, errOnlyNumCanDecrBy
+	}
+
+	newVal := nodeVal - value
+	node.value = newVal
+
+	return newVal, nil
+}
+
+// calculatePriority 获取缓存数据的优先级权重
+func (r *RBTreePriorityCache) calculatePriority(node *rbTreeCacheNode) int {
+	priority := r.defaultPriority
+
+	//如果实现了Priority接口，那么就用接口的方法获取优先级权重
+	val, ok := node.value.(Priority)
+	if ok {
+		priority = val.Priority()
+	}
+
+	return priority
+}
+
+// updateNodePriority 更新缓存节点的优先级
+func (r *RBTreePriorityCache) updateNodePriority(ctx context.Context, key string, priority int) (bool, error) {
 	r.globalLock.RLock()
 	_, err := r.cacheData.Find(key)
 	r.globalLock.RUnlock()
@@ -437,43 +429,6 @@ func (r *RBTreePriorityCache) UpdatePriority(ctx context.Context, key string, pr
 	return true, nil
 }
 
-func (r *RBTreePriorityCache) DecrBy(ctx context.Context, key string, value int64) (int64, error) {
-	r.globalLock.Lock()
-	defer r.globalLock.Unlock()
-
-	node, cacheErr := r.cacheData.Find(key)
-	if cacheErr != nil {
-		if r.isFull() {
-			r.deleteNodeByPriority()
-		}
-		node = newIntRBTreeCacheNode(key)
-		r.addNode(node)
-	}
-
-	nodeVal, ok := node.value.(int64)
-	if !ok {
-		return 0, errOnlyNumCanDecrBy
-	}
-
-	newVal := nodeVal - value
-	node.value = newVal
-
-	return newVal, nil
-}
-
-// calculatePriority 获取缓存数据的优先级权重
-func (r *RBTreePriorityCache) calculatePriority(node *rbTreeCacheNode) int {
-	priority := r.defaultPriority
-
-	//如果实现了Priority接口，那么就用接口的方法获取优先级权重
-	val, ok := node.value.(Priority)
-	if ok {
-		priority = val.Priority()
-	}
-
-	return priority
-}
-
 // addNodeToPriority 把缓存结点添加到优先级数据中去
 func (r *RBTreePriorityCache) addNodeToPriority(node *rbTreeCacheNode) {
 	node.priority = r.calculatePriority(node)
@@ -491,6 +446,19 @@ func (r *RBTreePriorityCache) deleteNodeFromPriority(node *rbTreeCacheNode) {
 // isFull 键值对数量满了没有
 func (r *RBTreePriorityCache) isFull() bool {
 	return r.cacheNum >= r.cacheLimit
+}
+
+// findOrCreateNode 查找节点，不存在时使用默认值创建节点【调用该方法必须先获得锁】
+func (r *RBTreePriorityCache) findOrCreateNode(key string, defaultValue any) *rbTreeCacheNode {
+	node, cacheErr := r.cacheData.Find(key)
+	if cacheErr != nil {
+		if r.isFull() {
+			r.deleteNodeByPriority()
+		}
+		node = newRBTreeCacheNode(key, defaultValue)
+		r.addNode(node)
+	}
+	return node
 }
 
 // deleteNodeByPriority 根据优先级淘汰缓存结点【调用该方法必须先获得锁】

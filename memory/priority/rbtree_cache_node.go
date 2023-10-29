@@ -32,41 +32,33 @@ type rbTreeCacheNode struct {
 	isDeleted bool      //是否被删除
 }
 
-func newKVRBTreeCacheNode(key string, value any, expiration time.Duration) *rbTreeCacheNode {
-	node := &rbTreeCacheNode{
+func newRBTreeCacheNode(key string, value any) *rbTreeCacheNode {
+	return &rbTreeCacheNode{
 		key:   key,
 		value: value,
 	}
+}
+
+func newKVRBTreeCacheNode(key string, value any, expiration time.Duration) *rbTreeCacheNode {
+	node := newRBTreeCacheNode(key, value)
 	node.setExpiration(expiration)
 	return node
 }
 
 func newListRBTreeCacheNode(key string) *rbTreeCacheNode {
-	return &rbTreeCacheNode{
-		key:   key,
-		value: list.NewLinkedList[any](),
-	}
+	return newRBTreeCacheNode(key, list.NewLinkedList[any]())
 }
 
 func newSetRBTreeCacheNode(key string, initSize int) *rbTreeCacheNode {
-	return &rbTreeCacheNode{
-		key:   key,
-		value: set.NewMapSet[any](initSize),
-	}
+	return newRBTreeCacheNode(key, set.NewMapSet[any](initSize))
 }
 
 func newIntRBTreeCacheNode(key string) *rbTreeCacheNode {
-	return &rbTreeCacheNode{
-		key:   key,
-		value: int64(0),
-	}
+	return newRBTreeCacheNode(key, int64(0))
 }
 
 func newFloatRBTreeCacheNode(key string) *rbTreeCacheNode {
-	return &rbTreeCacheNode{
-		key:   key,
-		value: float64(0),
-	}
+	return newRBTreeCacheNode(key, float64(0))
 }
 
 // setExpiration 设置有效期

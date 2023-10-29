@@ -1689,7 +1689,7 @@ func TestRBTreePriorityCache_UpdatePriority(t *testing.T) {
 	for _, tc := range testsCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cache := tc.startCache()
-			res, err := cache.UpdatePriority(context.Background(), tc.key, tc.priority)
+			res, err := cache.updateNodePriority(context.Background(), tc.key, tc.priority)
 			assert.Equal(t, tc.wantErr, err)
 			if err != nil {
 				return
@@ -1748,7 +1748,7 @@ func TestRBTreePriorityCache_UpdatePriority_Concurrent(t *testing.T) {
 			// 最后设置优先级的最终生效
 			label.lock.Lock()
 			defer label.lock.Unlock()
-			ok, _ := cache.UpdatePriority(context.Background(), key, j)
+			ok, _ := cache.updateNodePriority(context.Background(), key, j)
 			if ok {
 				label.finalPriority = j
 			}
@@ -1771,7 +1771,7 @@ func TestRBTreePriorityCache_UpdatePriority_Concurrent(t *testing.T) {
 		go func() {
 			label.lock.Lock()
 			defer label.lock.Unlock()
-			ok, _ := cache.UpdatePriority(context.Background(), key, j)
+			ok, _ := cache.updateNodePriority(context.Background(), key, j)
 			if !ok {
 				label.failcount++
 			}
