@@ -400,35 +400,6 @@ func (r *RBTreePriorityCache) calculatePriority(node *rbTreeCacheNode) int {
 	return priority
 }
 
-// updateNodePriority 更新缓存节点的优先级
-func (r *RBTreePriorityCache) updateNodePriority(ctx context.Context, key string, priority int) (bool, error) {
-	r.globalLock.RLock()
-	_, err := r.cacheData.Find(key)
-	r.globalLock.RUnlock()
-	if err != nil {
-		return false, errs.ErrKeyNotExist
-	}
-
-	r.globalLock.Lock()
-	defer r.globalLock.Unlock()
-	originNode, err := r.cacheData.Find(key)
-	if err != nil {
-		return false, errs.ErrKeyNotExist
-	}
-	//数据结构暂时不支持修改优先级后重新排序
-	//通过删除旧节点再新增节点触发优先级修改
-	//此处拷贝暂时不需要deepcopy
-	nodeCopy := *originNode
-	nodeCopy.setPriority(priority)
-
-	r.cacheData.Delete(originNode.key)
-	originNode.truncate()
-
-	_ = r.cacheData.Add(nodeCopy.key, &nodeCopy)
-	_ = r.priorityData.Enqueue(&nodeCopy)
-	return true, nil
-}
-
 // addNodeToPriority 把缓存结点添加到优先级数据中去
 func (r *RBTreePriorityCache) addNodeToPriority(node *rbTreeCacheNode) {
 	node.priority = r.calculatePriority(node)

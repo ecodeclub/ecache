@@ -32,6 +32,7 @@ type rbTreeCacheNode struct {
 	isDeleted bool      //是否被删除
 }
 
+// newRBTreeCacheNode 创建红黑树节点，注意如果是容器类型节点要value传递初始化一个零值
 func newRBTreeCacheNode(key string, value any) *rbTreeCacheNode {
 	return &rbTreeCacheNode{
 		key:   key,
@@ -68,11 +69,6 @@ func (node *rbTreeCacheNode) setExpiration(expiration time.Duration) {
 		deadline = time.Now().Add(expiration)
 	}
 	node.deadline = deadline
-}
-
-// setExpiration 设置有效期
-func (node *rbTreeCacheNode) setPriority(priority int) {
-	node.priority = priority
 }
 
 // replace 重新设置缓存结点的value和有效期
