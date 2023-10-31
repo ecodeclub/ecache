@@ -98,7 +98,7 @@ func (r *RBTreePriorityCache) Set(_ context.Context, key string, val any, expira
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node := r.findOrCreateNode(key, val)
+	node := r.findOrCreateNode(key, func() any { return val })
 
 	node.replace(val, expiration)
 	return nil
@@ -204,7 +204,9 @@ func (r *RBTreePriorityCache) LPush(ctx context.Context, key string, val ...any)
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node := r.findOrCreateNode(key, list.NewLinkedList[any]())
+	node := r.findOrCreateNode(key, func() any {
+		return list.NewLinkedList[any]()
+	})
 	nodeVal, ok := node.value.(*list.LinkedList[any])
 	if !ok {
 		return 0, errOnlyListCanLPUSH
@@ -252,7 +254,9 @@ func (r *RBTreePriorityCache) SAdd(ctx context.Context, key string, members ...a
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node := r.findOrCreateNode(key, set.NewMapSet[any](r.collectionCap))
+	node := r.findOrCreateNode(key, func() any {
+		return set.NewMapSet[any](r.collectionCap)
+	})
 	nodeVal, ok := node.value.(*set.MapSet[any])
 	if !ok {
 		return 0, errOnlySetCanSAdd
@@ -303,7 +307,7 @@ func (r *RBTreePriorityCache) IncrBy(ctx context.Context, key string, value int6
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node := r.findOrCreateNode(key, int64(0))
+	node := r.findOrCreateNode(key, func() any { return int64(0) })
 
 	nodeVal, ok := node.value.(int64)
 	if !ok {
@@ -320,7 +324,7 @@ func (r *RBTreePriorityCache) IncrByFloat(ctx context.Context, key string, value
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node := r.findOrCreateNode(key, float64(0))
+	node := r.findOrCreateNode(key, func() any { return float64(0) })
 	nodeVal, ok := node.value.(float64)
 	if !ok {
 		//如果是int类型可以尝试转换
@@ -373,7 +377,7 @@ func (r *RBTreePriorityCache) DecrBy(ctx context.Context, key string, value int6
 	r.globalLock.Lock()
 	defer r.globalLock.Unlock()
 
-	node := r.findOrCreateNode(key, int64(0))
+	node := r.findOrCreateNode(key, func() any { return int64(0) })
 
 	nodeVal, ok := node.value.(int64)
 	if !ok {
@@ -419,13 +423,13 @@ func (r *RBTreePriorityCache) isFull() bool {
 }
 
 // findOrCreateNode 查找节点，不存在时使用默认值创建节点【调用该方法必须先获得锁】
-func (r *RBTreePriorityCache) findOrCreateNode(key string, defaultValue any) *rbTreeCacheNode {
+func (r *RBTreePriorityCache) findOrCreateNode(key string, initFunc func() any) *rbTreeCacheNode {
 	node, cacheErr := r.cacheData.Find(key)
 	if cacheErr != nil {
 		if r.isFull() {
 			r.deleteNodeByPriority()
 		}
-		node = newRBTreeCacheNode(key, defaultValue)
+		node = newRBTreeCacheNode(key, initFunc())
 		r.addNode(node)
 	}
 	return node
