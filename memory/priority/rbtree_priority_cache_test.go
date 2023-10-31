@@ -628,7 +628,9 @@ func TestRBTreePriorityCache_doubleCheckInGet(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			startCache := tc.startCache()
+			startCache.globalLock.Lock()
 			startCache.doubleCheckWhenExpire(tc.node, time.Now())
+			startCache.globalLock.Unlock()
 			assert.Equal(t, true, compareTwoRBTreeClient(startCache, tc.wantCache()))
 		})
 	}

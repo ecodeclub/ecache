@@ -150,6 +150,8 @@ func (r *RBTreePriorityCache) Get(ctx context.Context, key string) (val ecache.V
 		return
 	}
 
+	r.globalLock.Lock()
+	defer r.globalLock.Unlock()
 	now := time.Now()
 	if !node.beforeDeadline(now) {
 		r.doubleCheckWhenExpire(node, now)
@@ -162,11 +164,8 @@ func (r *RBTreePriorityCache) Get(ctx context.Context, key string) (val ecache.V
 	return
 }
 
-// doubleCheckWhenExpire 缓存过期时的二次校验，防止被抢先删除了
+// doubleCheckWhenExpire 缓存过期时的二次校验，防止被抢先删除了【调用该方法必须先获得锁】
 func (r *RBTreePriorityCache) doubleCheckWhenExpire(node *rbTreeCacheNode, now time.Time) {
-	r.globalLock.Lock()
-	defer r.globalLock.Unlock()
-
 	checkNode, checkCacheErr := r.cacheData.Find(node.key)
 	if checkCacheErr != nil {
 		return //被抢先删除了
@@ -463,7 +462,9 @@ func (r *RBTreePriorityCache) autoClean() {
 		now := time.Now()
 		for _, value := range values {
 			if !value.beforeDeadline(now) {
+				r.globalLock.Lock()
 				r.doubleCheckWhenExpire(value, now)
+				r.globalLock.Unlock()
 			}
 		}
 	}
