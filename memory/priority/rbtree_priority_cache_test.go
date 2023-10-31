@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/ecodeclub/ekit/list"
 	"github.com/ecodeclub/ekit/set"
@@ -626,7 +628,9 @@ func TestRBTreePriorityCache_doubleCheckInGet(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			startCache := tc.startCache()
+			startCache.globalLock.Lock()
 			startCache.doubleCheckWhenExpire(tc.node, time.Now())
+			startCache.globalLock.Unlock()
 			assert.Equal(t, true, compareTwoRBTreeClient(startCache, tc.wantCache()))
 		})
 	}
@@ -1407,7 +1411,7 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 			wantRet: 1,
 		},
 		{
-			name: "wrong type",
+			name: "wrong string type ",
 			startCache: func() *RBTreePriorityCache {
 				cache, _ := NewRBTreePriorityCache()
 				cache.globalLock.Lock()
@@ -1424,6 +1428,21 @@ func TestRBTreePriorityCache_IncrBy(t *testing.T) {
 				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
 				return cache
 			},
+			wantErr: errOnlyNumCanIncrBy,
+		},
+		{
+			name: "wrong float type",
+			startCache: func() *RBTreePriorityCache {
+				cache, _ := NewRBTreePriorityCache()
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newFloatRBTreeCacheNode("key1")
+				node.value = float64(3.14)
+				cache.addNode(node)
+				return cache
+			},
+			key:     "key1",
+			value:   1,
 			wantErr: errOnlyNumCanIncrBy,
 		},
 	}
@@ -1587,4 +1606,241 @@ func TestRBTreePriorityCache_autoClean(t *testing.T) {
 	value6 = cache.Get(context.Background(), "key6")
 	value6Str, _ = value6.String()
 	assert.Equal(t, "value6", value6Str)
+}
+
+func TestRBTreePriorityCache_Delete(t *testing.T) {
+
+	testCases := []struct {
+		name    string
+		cache   *RBTreePriorityCache
+		keys    []string
+		wantRes int64
+		wantErr error
+	}{
+		{
+			name: "cache 1 , delete 1",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				cache.addNode(newKVRBTreeCacheNode("key1", testStructForPriority{priority: -1}, 0))
+				cache.globalLock.Unlock()
+				return cache
+			}(),
+			keys:    []string{"key1"},
+			wantRes: 1,
+		},
+		{
+			name: "cache 1 , delete 0",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				cache.addNode(newKVRBTreeCacheNode("key1", testStructForPriority{priority: -1}, 0))
+				cache.globalLock.Unlock()
+				return cache
+			}(),
+			keys:    []string{"key2"},
+			wantRes: 0,
+		},
+		{
+			name: "cache 1, expired 1, delete 0",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				cache.addNode(newKVRBTreeCacheNode("key1", testStructForPriority{priority: -1}, time.Second))
+				cache.globalLock.Unlock()
+
+				time.Sleep(3 * time.Second)
+				return cache
+			}(),
+			keys:    []string{"key1"},
+			wantRes: 0,
+		},
+		{
+			name: "cache 4, delete 3",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				cache.addNode(newKVRBTreeCacheNode("key1", testStructForPriority{priority: -1}, time.Second))
+				cache.addNode(newKVRBTreeCacheNode("key2", testStructForPriority{priority: -1}, time.Second))
+				cache.addNode(newKVRBTreeCacheNode("key3", testStructForPriority{priority: -1}, time.Second))
+				cache.addNode(newKVRBTreeCacheNode("key4", testStructForPriority{priority: -1}, time.Second))
+				cache.globalLock.Unlock()
+				return cache
+			}(),
+			keys:    []string{"key1", "key2", "key3"},
+			wantRes: 3,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cache := tc.cache
+			res, err := cache.Delete(context.Background(), tc.keys...)
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantRes, res)
+
+			//确认已经被删除
+			for _, key := range tc.keys {
+				_, err = tc.cache.cacheData.Find(key)
+				assert.NotNil(t, err)
+			}
+		})
+	}
+}
+
+func TestRBTreePriorityCache_IncrByFloat(t *testing.T) {
+
+	testCases := []struct {
+		name      string
+		cache     *RBTreePriorityCache
+		key       string
+		value     float64
+		wantCache *RBTreePriorityCache
+		wantRes   float64
+		wantErr   error
+	}{
+		{
+			name: "hit cache key1, increase key1",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newFloatRBTreeCacheNode("key1")
+				node.value = float64(3.14)
+				cache.addNode(node)
+				return cache
+			}(),
+			key:     "key1",
+			value:   0.1,
+			wantRes: 3.24,
+			wantCache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newFloatRBTreeCacheNode("key1")
+				node.value = 3.24
+				cache.addNode(node)
+				return cache
+			}(),
+		},
+		{
+			name: "miss cache key1, create key1",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+				return cache
+			}(),
+			key:     "key1",
+			value:   0.1,
+			wantRes: 0.1,
+			wantCache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newFloatRBTreeCacheNode("key1")
+				node.value = 0.1
+				cache.addNode(node)
+				return cache
+			}(),
+		},
+		{
+			name: "hit cache key1, wrong type",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(8))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				cache.addNode(newKVRBTreeCacheNode("key1", "value1", 0))
+				return cache
+			}(),
+			key:     "key1",
+			value:   0.1,
+			wantErr: errOnlyNumCanIncrBy,
+		},
+		{
+			name: "cache is full, increase key1, evited old key",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(1))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newFloatRBTreeCacheNode("key0")
+				node.value = 3.14
+				cache.addNode(node)
+				return cache
+			}(),
+			key:     "key1",
+			value:   0.1,
+			wantRes: 0.1,
+			wantCache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(1))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newFloatRBTreeCacheNode("key1")
+				node.value = 0.1
+				cache.addNode(node)
+				return cache
+			}(),
+		},
+		{
+			name: "hit cache key1, convert int64 type to float64 type and increase",
+			cache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(1))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newIntRBTreeCacheNode("key1")
+				node.value = int64(3)
+				cache.addNode(node)
+				return cache
+			}(),
+			key:     "key1",
+			value:   0.1,
+			wantRes: 3.1,
+			wantCache: func() *RBTreePriorityCache {
+				cache, err := newRBTreePriorityCache(WithCacheLimit(1))
+				require.NoError(t, err)
+
+				cache.globalLock.Lock()
+				defer cache.globalLock.Unlock()
+				node := newFloatRBTreeCacheNode("key1")
+				node.value = 3.1
+				cache.addNode(node)
+				return cache
+			}(),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			startCache := tc.cache
+			value, err := startCache.IncrByFloat(context.Background(), tc.key, tc.value)
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantRes, value)
+			assert.Equal(t, true, compareTwoRBTreeClient(startCache, tc.wantCache))
+		})
+	}
 }
