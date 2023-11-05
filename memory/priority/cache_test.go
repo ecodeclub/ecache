@@ -1,12 +1,27 @@
+// Copyright 2023 ecodeclub
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package priority
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ecache/internal/errs"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestCache_Set(t *testing.T) {
@@ -337,9 +352,11 @@ func TestCache_Get(t *testing.T) {
 			tc.before(tc.cache)
 
 			for k, v := range tc.beforeGetIndex {
-				assert.Equal(t, v.Val, tc.cache.(*Cache).index[k].Val)
+				node := tc.cache.(*Cache).getNode(k)
 
-				assert.InDelta(t, v.Dl.Unix(), tc.cache.(*Cache).index[k].Dl.Unix(), 2)
+				assert.Equal(t, v.Val, node.Val)
+
+				assert.InDelta(t, v.Dl.Unix(), node.Dl.Unix(), 2)
 			}
 
 			res := tc.cache.Get(ctx, tc.key)
@@ -347,9 +364,11 @@ func TestCache_Get(t *testing.T) {
 			assert.Equal(t, len(tc.wantIndex), len(tc.cache.(*Cache).index))
 
 			for k, v := range tc.wantIndex {
-				assert.Equal(t, v.Val, tc.cache.(*Cache).index[k].Val)
+				node := tc.cache.(*Cache).getNode(k)
 
-				assert.InDelta(t, v.Dl.Unix(), tc.cache.(*Cache).index[k].Dl.Unix(), 2)
+				assert.Equal(t, v.Val, node.Val)
+
+				assert.InDelta(t, v.Dl.Unix(), node.Dl.Unix(), 2)
 			}
 
 			assert.Equal(t, tc.wantErr, res.Err)
@@ -361,6 +380,12 @@ func TestCache_Get(t *testing.T) {
 			assert.Equal(t, tc.wantVal, res.Val)
 		})
 	}
+}
+
+func (c *Cache) getNode(key string) *Node {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.index[key]
 }
 
 func TestCache_GetSet(t *testing.T) {
