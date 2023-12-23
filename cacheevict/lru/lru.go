@@ -159,16 +159,6 @@ func (l *LRU[K, V]) Peek(key K) (value V, ok bool) {
 	return l.peek(key)
 }
 
-//func (l *LRU[K, V]) PeekOrAdd(key K, value V, expiration time.Duration) (V, bool, bool) {
-//	l.lock.Lock()
-//	defer l.lock.Unlock()
-//	val, ok := l.peek(key)
-//	if ok {
-//		return val, true, false
-//	}
-//	return val, false, l.add(key, value, expiration)
-//}
-
 func (l *LRU[K, V]) GetOldest() (key K, value V, ok bool) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -252,15 +242,6 @@ func (l *LRU[K, V]) Contains(key K) (ok bool) {
 	defer l.lock.Unlock()
 	return l.contains(key)
 }
-
-//func (l *LRU[K, V]) ContainsOrAdd(key K, value V, expiration time.Duration) (ok, evicted bool) {
-//	l.lock.Lock()
-//	defer l.lock.Unlock()
-//	if l.contains(key) {
-//		return true, false
-//	}
-//	return false, l.add(key, value, expiration)
-//}
 
 func (l *LRU[K, V]) delete(key K) {
 	delete(l.data, key)
