@@ -33,22 +33,180 @@ var (
 	_ ecache.Cache = (*Cache)(nil)
 )
 
-type Cache struct {
-	lock sync.RWMutex
-	lru  *LRU[string, any]
+//type entry[K comparable, V any] struct {
+//	key       K
+//	value     V
+//	expiresAt time.Time
+//}
+//
+//func (e entry[K, V]) isExpired() bool {
+//	return e.expiresAt.Before(time.Now())
+//}
+//
+//func (e entry[K, V]) existExpiration() bool {
+//	return !e.expiresAt.IsZero()
+//}
+
+const (
+	defaultCapacity = 100
+)
+
+type entry struct {
+	key       string
+	value     any
+	expiresAt time.Time
 }
 
-func NewCache(lru *LRU[string, any]) *Cache {
-	return &Cache{
-		lock: sync.RWMutex{},
-		lru:  lru,
+func (e entry) isExpired() bool {
+	return e.expiresAt.Before(time.Now())
+}
+
+func (e entry) existExpiration() bool {
+	return !e.expiresAt.IsZero()
+}
+
+type EvictCallback func(key string, value any)
+
+type Option func(l *Cache)
+
+func WithCallback(callback func(k string, v any)) Option {
+	return func(l *Cache) {
+		l.callback = callback
 	}
+}
+
+func WithCapacity(capacity int) Option {
+	return func(l *Cache) {
+		l.capacity = capacity
+	}
+}
+
+type Cache struct {
+	lock     sync.RWMutex
+	capacity int
+	list     *linkedList[entry]
+	data     map[string]*element[entry]
+	callback EvictCallback
+}
+
+func NewCache(options ...Option) *Cache {
+	res := &Cache{
+		list:     newLinkedList[entry](),
+		data:     make(map[string]*element[entry], 16),
+		capacity: defaultCapacity,
+	}
+	for _, opt := range options {
+		opt(res)
+	}
+	return res
+}
+
+func (c *Cache) pushEntry(key string, ent entry) (evicted bool) {
+	if elem, ok := c.data[key]; ok {
+		elem.Value = ent
+		c.list.MoveToFront(elem)
+		return false
+	}
+	elem := c.list.PushFront(ent)
+	c.data[key] = elem
+	evict := c.len() > c.capacity
+	if evict {
+		c.removeOldest()
+	}
+	return evict
+}
+
+func (c *Cache) addTTL(key string, value any, expiration time.Duration) (evicted bool) {
+	ent := entry{key: key, value: value,
+		expiresAt: time.Now().Add(expiration)}
+	return c.pushEntry(key, ent)
+}
+
+func (c *Cache) add(key string, value any) (evicted bool) {
+	ent := entry{key: key, value: value}
+	return c.pushEntry(key, ent)
+}
+
+func (c *Cache) get(key string) (value any, ok bool) {
+	if elem, exist := c.data[key]; exist {
+		ent := elem.Value
+		if ent.existExpiration() && ent.isExpired() {
+			c.removeElement(elem)
+			return
+		}
+		c.list.MoveToFront(elem)
+		return ent.value, true
+	}
+	return
+}
+
+func (c *Cache) RemoveOldest() (key string, value any, ok bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if elem := c.list.Back(); elem != nil {
+		c.removeElement(elem)
+		return elem.Value.key, elem.Value.value, true
+	}
+	return
+}
+
+func (c *Cache) removeOldest() {
+	if elem := c.list.Back(); elem != nil {
+		c.removeElement(elem)
+	}
+}
+
+func (c *Cache) removeElement(elem *element[entry]) {
+	c.list.Remove(elem)
+	ent := elem.Value
+	c.delete(ent.key)
+	if c.callback != nil {
+		c.callback(ent.key, ent.value)
+	}
+}
+
+func (c *Cache) remove(key string) (present bool) {
+	if elem, ok := c.data[key]; ok {
+		c.removeElement(elem)
+		if elem.Value.existExpiration() && elem.Value.isExpired() {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (c *Cache) contains(key string) (ok bool) {
+	elem, ok := c.data[key]
+	if ok {
+		if elem.Value.existExpiration() && elem.Value.isExpired() {
+			c.removeElement(elem)
+			return false
+		}
+	}
+	return ok
+}
+
+func (c *Cache) delete(key string) {
+	delete(c.data, key)
+}
+
+func (c *Cache) len() int {
+	var length int
+	for elem := c.list.Back(); elem != nil; elem = elem.Prev() {
+		if elem.Value.existExpiration() && elem.Value.isExpired() {
+			c.removeElement(elem)
+			continue
+		}
+		length++
+	}
+	return length
 }
 
 func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.lru.AddTTL(key, val, expiration)
+	c.addTTL(key, val, expiration)
 	return nil
 }
 
@@ -57,20 +215,20 @@ func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.lru.Contains(key) {
+	if c.contains(key) {
 		return false, nil
 	}
 
-	c.lru.AddTTL(key, val, expiration)
+	c.addTTL(key, val, expiration)
 
 	return true, nil
 }
 
 func (c *Cache) Get(ctx context.Context, key string) (val ecache.Value) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	var ok bool
-	val.Val, ok = c.lru.Get(key)
+	val.Val, ok = c.get(key)
 	if !ok {
 		val.Err = errs.ErrKeyNotExist
 	}
@@ -83,12 +241,12 @@ func (c *Cache) GetSet(ctx context.Context, key string, val string) (result ecac
 	defer c.lock.Unlock()
 
 	var ok bool
-	result.Val, ok = c.lru.Get(key)
+	result.Val, ok = c.get(key)
 	if !ok {
 		result.Err = errs.ErrKeyNotExist
 	}
 
-	c.lru.Add(key, val)
+	c.add(key, val)
 
 	return
 }
@@ -102,11 +260,11 @@ func (c *Cache) Delete(ctx context.Context, key ...string) (int64, error) {
 		if ctx.Err() != nil {
 			return n, ctx.Err()
 		}
-		_, ok := c.lru.Get(k)
+		_, ok := c.get(k)
 		if !ok {
 			continue
 		}
-		if c.lru.Remove(k) {
+		if c.remove(k) {
 			n++
 		} else {
 			return n, fmt.Errorf("%w: key = %s", errs.ErrDeleteKeyFailed, k)
@@ -134,12 +292,12 @@ func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.lru.Get(key)
+	result.Val, ok = c.get(key)
 	if !ok {
 		l := &list.ConcurrentList[ecache.Value]{
 			List: list.NewLinkedListOf[ecache.Value](c.anySliceToValueSlice(val...)),
 		}
-		c.lru.Add(key, l)
+		c.add(key, l)
 		return int64(l.Len()), nil
 	}
 
@@ -153,7 +311,7 @@ func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error
 		return 0, err
 	}
 
-	c.lru.Add(key, data)
+	c.add(key, data)
 	return int64(data.Len()), nil
 }
 
@@ -164,7 +322,7 @@ func (c *Cache) LPop(ctx context.Context, key string) (val ecache.Value) {
 	var (
 		ok bool
 	)
-	val.Val, ok = c.lru.Get(key)
+	val.Val, ok = c.get(key)
 	if !ok {
 		val.Err = errs.ErrKeyNotExist
 		return
@@ -194,7 +352,7 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.lru.Get(key)
+	result.Val, ok = c.get(key)
 	if !ok {
 		result.Val = set.NewMapSet[any](8)
 	}
@@ -207,7 +365,7 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	for _, value := range members {
 		s.Add(value)
 	}
-	c.lru.Add(key, s)
+	c.add(key, s)
 
 	return int64(len(s.Keys())), nil
 }
@@ -216,7 +374,7 @@ func (c *Cache) SRem(ctx context.Context, key string, members ...any) (int64, er
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	result, ok := c.lru.Get(key)
+	result, ok := c.get(key)
 	if !ok {
 		return 0, errs.ErrKeyNotExist
 	}
@@ -244,9 +402,9 @@ func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, err
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.lru.Get(key)
+	result.Val, ok = c.get(key)
 	if !ok {
-		c.lru.Add(key, value)
+		c.add(key, value)
 		return value, nil
 	}
 
@@ -256,7 +414,7 @@ func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, err
 	}
 
 	newVal := incr + value
-	c.lru.Add(key, newVal)
+	c.add(key, newVal)
 
 	return newVal, nil
 }
@@ -269,9 +427,9 @@ func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, err
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.lru.Get(key)
+	result.Val, ok = c.get(key)
 	if !ok {
-		c.lru.Add(key, -value)
+		c.add(key, -value)
 		return -value, nil
 	}
 
@@ -281,7 +439,7 @@ func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, err
 	}
 
 	newVal := decr - value
-	c.lru.Add(key, newVal)
+	c.add(key, newVal)
 
 	return newVal, nil
 }
@@ -294,9 +452,9 @@ func (c *Cache) IncrByFloat(ctx context.Context, key string, value float64) (flo
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.lru.Get(key)
+	result.Val, ok = c.get(key)
 	if !ok {
-		c.lru.Add(key, value)
+		c.add(key, value)
 		return value, nil
 	}
 
@@ -306,7 +464,7 @@ func (c *Cache) IncrByFloat(ctx context.Context, key string, value float64) (flo
 	}
 
 	newVal := val + value
-	c.lru.Add(key, newVal)
+	c.add(key, newVal)
 
 	return newVal, nil
 }

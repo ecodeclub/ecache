@@ -21,7 +21,7 @@ import (
 
 func Example() {
 	// Create a new list and put some numbers in it.
-	l := NewLinkedList[int]()
+	l := newLinkedList[int]()
 	e4 := l.PushBack(4)
 	e1 := l.PushFront(1)
 	l.InsertBefore(3, e4)
@@ -39,7 +39,7 @@ func Example() {
 	// 4
 }
 
-func checkLinkedListLen[T any](t *testing.T, l *LinkedList[T], len int) bool {
+func checkLinkedListLen[T any](t *testing.T, l *linkedList[T], len int) bool {
 	if n := l.Len(); n != len {
 		t.Errorf("l.Len() = %d, want %d", n, len)
 		return false
@@ -47,7 +47,7 @@ func checkLinkedListLen[T any](t *testing.T, l *LinkedList[T], len int) bool {
 	return true
 }
 
-func checkLinkedListPointers[T any](t *testing.T, l *LinkedList[T], es []*Element[T]) {
+func checkLinkedListPointers[T any](t *testing.T, l *linkedList[T], es []*element[T]) {
 	root := &l.root
 
 	if !checkLinkedListLen[T](t, l, len(es)) {
@@ -66,7 +66,7 @@ func checkLinkedListPointers[T any](t *testing.T, l *LinkedList[T], es []*Elemen
 	// check internal and external prev/next connections
 	for i, e := range es {
 		prev := root
-		Prev := (*Element[T])(nil)
+		Prev := (*element[T])(nil)
 		if i > 0 {
 			prev = es[i-1]
 			Prev = prev
@@ -79,7 +79,7 @@ func checkLinkedListPointers[T any](t *testing.T, l *LinkedList[T], es []*Elemen
 		}
 
 		next := root
-		Next := (*Element[T])(nil)
+		Next := (*element[T])(nil)
 		if i < len(es)-1 {
 			next = es[i+1]
 			Next = next
@@ -94,63 +94,63 @@ func checkLinkedListPointers[T any](t *testing.T, l *LinkedList[T], es []*Elemen
 }
 
 func TestLinkedList(t *testing.T) {
-	l := NewLinkedList[any]()
-	checkLinkedListPointers(t, l, []*Element[any]{})
+	l := newLinkedList[any]()
+	checkLinkedListPointers(t, l, []*element[any]{})
 	// Single element LinkList
 	e := l.PushFront("a")
-	checkLinkedListPointers(t, l, []*Element[any]{e})
+	checkLinkedListPointers(t, l, []*element[any]{e})
 	l.MoveToFront(e)
-	checkLinkedListPointers(t, l, []*Element[any]{e})
+	checkLinkedListPointers(t, l, []*element[any]{e})
 	l.MoveToBack(e)
-	checkLinkedListPointers(t, l, []*Element[any]{e})
+	checkLinkedListPointers(t, l, []*element[any]{e})
 	l.Remove(e)
-	checkLinkedListPointers(t, l, []*Element[any]{})
+	checkLinkedListPointers(t, l, []*element[any]{})
 
 	// Bigger LinkList
 	e2 := l.PushFront(2)
 	e1 := l.PushFront(1)
 	e3 := l.PushBack(3)
 	e4 := l.PushBack("banana")
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e2, e3, e4})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e2, e3, e4})
 
 	l.Remove(e2)
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e3, e4})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e3, e4})
 
 	l.MoveToFront(e3) // move from middle
-	checkLinkedListPointers(t, l, []*Element[any]{e3, e1, e4})
+	checkLinkedListPointers(t, l, []*element[any]{e3, e1, e4})
 
 	l.MoveToFront(e1)
 	l.MoveToBack(e3) // move from middle
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e4, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3})
 
 	l.MoveToFront(e3) // move from back
-	checkLinkedListPointers(t, l, []*Element[any]{e3, e1, e4})
+	checkLinkedListPointers(t, l, []*element[any]{e3, e1, e4})
 	l.MoveToFront(e3) // should be no-op
-	checkLinkedListPointers(t, l, []*Element[any]{e3, e1, e4})
+	checkLinkedListPointers(t, l, []*element[any]{e3, e1, e4})
 
 	l.MoveToBack(e3) // move from front
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e4, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3})
 	l.MoveToBack(e3) // should be no-op
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e4, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3})
 
 	e2 = l.InsertBefore(2, e1) // insert before front
-	checkLinkedListPointers(t, l, []*Element[any]{e2, e1, e4, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e2, e1, e4, e3})
 	l.Remove(e2)
 	e2 = l.InsertBefore(2, e4) // insert before middle
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e2, e4, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e2, e4, e3})
 	l.Remove(e2)
 	e2 = l.InsertBefore(2, e3) // insert before back
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e4, e2, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e2, e3})
 	l.Remove(e2)
 
 	e2 = l.InsertAfter(2, e1) // insert after front
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e2, e4, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e2, e4, e3})
 	l.Remove(e2)
 	e2 = l.InsertAfter(2, e4) // insert after middle
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e4, e2, e3})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e2, e3})
 	l.Remove(e2)
 	e2 = l.InsertAfter(2, e3) // insert after back
-	checkLinkedListPointers(t, l, []*Element[any]{e1, e4, e3, e2})
+	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3, e2})
 	l.Remove(e2)
 
 	// Check standard iteration.
@@ -165,15 +165,15 @@ func TestLinkedList(t *testing.T) {
 	}
 
 	// Clear all elements by iterating
-	var next *Element[any]
+	var next *element[any]
 	for e := l.Front(); e != nil; e = next {
 		next = e.Next()
 		l.Remove(e)
 	}
-	checkLinkedListPointers(t, l, []*Element[any]{})
+	checkLinkedListPointers(t, l, []*element[any]{})
 }
 
-func checkLinkedList[T int](t *testing.T, l *LinkedList[T], es []any) {
+func checkLinkedList[T int](t *testing.T, l *linkedList[T], es []any) {
 	if !checkLinkedListLen[T](t, l, len(es)) {
 		return
 	}
@@ -189,8 +189,8 @@ func checkLinkedList[T int](t *testing.T, l *LinkedList[T], es []any) {
 }
 
 func TestExtendingEle(t *testing.T) {
-	l1 := NewLinkedList[int]()
-	l2 := NewLinkedList[int]()
+	l1 := newLinkedList[int]()
+	l2 := newLinkedList[int]()
 
 	l1.PushBack(1)
 	l1.PushBack(2)
@@ -199,13 +199,13 @@ func TestExtendingEle(t *testing.T) {
 	l2.PushBack(4)
 	l2.PushBack(5)
 
-	l3 := NewLinkedList[int]()
+	l3 := newLinkedList[int]()
 	l3.PushBackList(l1)
 	checkLinkedList(t, l3, []any{1, 2, 3})
 	l3.PushBackList(l2)
 	checkLinkedList(t, l3, []any{1, 2, 3, 4, 5})
 
-	l3 = NewLinkedList[int]()
+	l3 = newLinkedList[int]()
 	l3.PushFrontList(l2)
 	checkLinkedList(t, l3, []any{4, 5})
 	l3.PushFrontList(l1)
@@ -214,19 +214,19 @@ func TestExtendingEle(t *testing.T) {
 	checkLinkedList(t, l1, []any{1, 2, 3})
 	checkLinkedList(t, l2, []any{4, 5})
 
-	l3 = NewLinkedList[int]()
+	l3 = newLinkedList[int]()
 	l3.PushBackList(l1)
 	checkLinkedList(t, l3, []any{1, 2, 3})
 	l3.PushBackList(l3)
 	checkLinkedList(t, l3, []any{1, 2, 3, 1, 2, 3})
 
-	l3 = NewLinkedList[int]()
+	l3 = newLinkedList[int]()
 	l3.PushFrontList(l1)
 	checkLinkedList(t, l3, []any{1, 2, 3})
 	l3.PushFrontList(l3)
 	checkLinkedList(t, l3, []any{1, 2, 3, 1, 2, 3})
 
-	l3 = NewLinkedList[int]()
+	l3 = newLinkedList[int]()
 	l1.PushBackList(l3)
 	checkLinkedList(t, l1, []any{1, 2, 3})
 	l1.PushFrontList(l3)
@@ -234,23 +234,23 @@ func TestExtendingEle(t *testing.T) {
 }
 
 func TestRemoveEle(t *testing.T) {
-	l := NewLinkedList[int]()
+	l := newLinkedList[int]()
 	e1 := l.PushBack(1)
 	e2 := l.PushBack(2)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e2})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e2})
 	e := l.Front()
 	l.Remove(e)
-	checkLinkedListPointers(t, l, []*Element[int]{e2})
+	checkLinkedListPointers(t, l, []*element[int]{e2})
 	l.Remove(e)
-	checkLinkedListPointers(t, l, []*Element[int]{e2})
+	checkLinkedListPointers(t, l, []*element[int]{e2})
 }
 
 func TestIssue4103Ele(t *testing.T) {
-	l1 := NewLinkedList[int]()
+	l1 := newLinkedList[int]()
 	l1.PushBack(1)
 	l1.PushBack(2)
 
-	l2 := NewLinkedList[int]()
+	l2 := newLinkedList[int]()
 	l2.PushBack(3)
 	l2.PushBack(4)
 
@@ -267,7 +267,7 @@ func TestIssue4103Ele(t *testing.T) {
 }
 
 func TestIssue6349Ele(t *testing.T) {
-	l := NewLinkedList[int]()
+	l := newLinkedList[int]()
 	l.PushBack(1)
 	l.PushBack(2)
 
@@ -285,79 +285,79 @@ func TestIssue6349Ele(t *testing.T) {
 }
 
 func TestMoveEle(t *testing.T) {
-	l := NewLinkedList[int]()
+	l := newLinkedList[int]()
 	e1 := l.PushBack(1)
 	e2 := l.PushBack(2)
 	e3 := l.PushBack(3)
 	e4 := l.PushBack(4)
 
 	l.MoveAfter(e3, e3)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e2, e3, e4})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e2, e3, e4})
 	l.MoveBefore(e2, e2)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e2, e3, e4})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e2, e3, e4})
 
 	l.MoveAfter(e3, e2)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e2, e3, e4})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e2, e3, e4})
 	l.MoveBefore(e2, e3)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e2, e3, e4})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e2, e3, e4})
 
 	l.MoveBefore(e2, e4)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e3, e2, e4})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e3, e2, e4})
 	e2, e3 = e3, e2
 
 	l.MoveBefore(e4, e1)
-	checkLinkedListPointers(t, l, []*Element[int]{e4, e1, e2, e3})
+	checkLinkedListPointers(t, l, []*element[int]{e4, e1, e2, e3})
 	e1, e2, e3, e4 = e4, e1, e2, e3
 
 	l.MoveAfter(e4, e1)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e4, e2, e3})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e4, e2, e3})
 	e2, e3, e4 = e4, e2, e3
 
 	l.MoveAfter(e2, e3)
-	checkLinkedListPointers(t, l, []*Element[int]{e1, e3, e2, e4})
+	checkLinkedListPointers(t, l, []*element[int]{e1, e3, e2, e4})
 }
 
 func TestZeroLinkedList(t *testing.T) {
-	var l1 = new(LinkedList[int])
+	var l1 = new(linkedList[int])
 	l1.PushFront(1)
 	checkLinkedList(t, l1, []any{1})
 
-	var l2 = new(LinkedList[int])
+	var l2 = new(linkedList[int])
 	l2.PushBack(1)
 	checkLinkedList(t, l2, []any{1})
 
-	var l3 = new(LinkedList[int])
+	var l3 = new(linkedList[int])
 	l3.PushFrontList(l1)
 	checkLinkedList(t, l3, []any{1})
 
-	var l4 = new(LinkedList[int])
+	var l4 = new(linkedList[int])
 	l4.PushBackList(l2)
 	checkLinkedList(t, l4, []any{1})
 }
 
 func TestInsertBeforeUnknownMarkEle(t *testing.T) {
-	var l LinkedList[int]
+	var l linkedList[int]
 	l.PushBack(1)
 	l.PushBack(2)
 	l.PushBack(3)
-	l.InsertBefore(1, new(Element[int]))
+	l.InsertBefore(1, new(element[int]))
 	checkLinkedList(t, &l, []any{1, 2, 3})
 }
 
 func TestInsertAfterUnknownMarkEle(t *testing.T) {
-	var l LinkedList[int]
+	var l linkedList[int]
 	l.PushBack(1)
 	l.PushBack(2)
 	l.PushBack(3)
-	l.InsertAfter(1, new(Element[int]))
+	l.InsertAfter(1, new(element[int]))
 	checkLinkedList(t, &l, []any{1, 2, 3})
 }
 
 func TestMoveUnknownMarkEle(t *testing.T) {
-	var l1 LinkedList[int]
+	var l1 linkedList[int]
 	e1 := l1.PushBack(1)
 
-	var l2 LinkedList[int]
+	var l2 linkedList[int]
 	e2 := l2.PushBack(2)
 
 	l1.MoveAfter(e1, e2)

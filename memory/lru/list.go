@@ -14,68 +14,68 @@
 
 package lru
 
-type Element[T any] struct {
+type element[T any] struct {
 	Value      T
-	list       *LinkedList[T]
-	next, prev *Element[T]
+	list       *linkedList[T]
+	next, prev *element[T]
 }
 
-func (e *Element[T]) Next() *Element[T] {
+func (e *element[T]) Next() *element[T] {
 	if n := e.next; e.list != nil && n != &e.list.root {
 		return n
 	}
 	return nil
 }
 
-func (e *Element[T]) Prev() *Element[T] {
+func (e *element[T]) Prev() *element[T] {
 	if p := e.prev; e.list != nil && p != &e.list.root {
 		return p
 	}
 	return nil
 }
 
-type LinkedList[T any] struct {
-	root Element[T]
+type linkedList[T any] struct {
+	root element[T]
 	len  int
 }
 
-func NewLinkedList[T any]() *LinkedList[T] {
-	l := &LinkedList[T]{}
+func newLinkedList[T any]() *linkedList[T] {
+	l := &linkedList[T]{}
 	return l.Init()
 }
 
-func (l *LinkedList[T]) Init() *LinkedList[T] {
+func (l *linkedList[T]) Init() *linkedList[T] {
 	l.root.next = &l.root
 	l.root.prev = &l.root
 	l.len = 0
 	return l
 }
 
-func (l *LinkedList[T]) Len() int {
+func (l *linkedList[T]) Len() int {
 	return l.len
 }
 
-func (l *LinkedList[T]) Front() *Element[T] {
+func (l *linkedList[T]) Front() *element[T] {
 	if l.len == 0 {
 		return nil
 	}
 	return l.root.next
 }
 
-func (l *LinkedList[T]) Back() *Element[T] {
+func (l *linkedList[T]) Back() *element[T] {
 	if l.len == 0 {
 		return nil
 	}
 	return l.root.prev
 }
 
-func (l *LinkedList[T]) lazyInit() {
+func (l *linkedList[T]) lazyInit() {
 	if l.root.next == nil {
 		l.Init()
 	}
 }
 
-func (l *LinkedList[T]) insert(e, at *Element[T]) *Element[T] {
+func (l *linkedList[T]) insert(e, at *element[T]) *element[T] {
 	e.prev = at
 	e.next = at.next
 	e.prev.next = e
@@ -85,11 +85,11 @@ func (l *LinkedList[T]) insert(e, at *Element[T]) *Element[T] {
 	return e
 }
 
-func (l *LinkedList[T]) insertValue(v T, at *Element[T]) *Element[T] {
-	return l.insert(&Element[T]{Value: v}, at)
+func (l *linkedList[T]) insertValue(v T, at *element[T]) *element[T] {
+	return l.insert(&element[T]{Value: v}, at)
 }
 
-func (l *LinkedList[T]) remove(e *Element[T]) {
+func (l *linkedList[T]) remove(e *element[T]) {
 	e.prev.next = e.next
 	e.next.prev = e.prev
 	e.next = nil
@@ -98,7 +98,7 @@ func (l *LinkedList[T]) remove(e *Element[T]) {
 	l.len--
 }
 
-func (l *LinkedList[T]) move(e, at *Element[T]) {
+func (l *linkedList[T]) move(e, at *element[T]) {
 	if e == at {
 		return
 	}
@@ -111,66 +111,66 @@ func (l *LinkedList[T]) move(e, at *Element[T]) {
 	e.next.prev = e
 }
 
-func (l *LinkedList[T]) Remove(e *Element[T]) any {
+func (l *linkedList[T]) Remove(e *element[T]) any {
 	if e.list == l {
 		l.remove(e)
 	}
 	return e.Value
 }
 
-func (l *LinkedList[T]) PushFront(v T) *Element[T] {
+func (l *linkedList[T]) PushFront(v T) *element[T] {
 	l.lazyInit()
 	return l.insertValue(v, &l.root)
 }
 
-func (l *LinkedList[T]) PushBack(v T) *Element[T] {
+func (l *linkedList[T]) PushBack(v T) *element[T] {
 	l.lazyInit()
 	return l.insertValue(v, l.root.prev)
 }
 
-func (l *LinkedList[T]) MoveToFront(e *Element[T]) {
+func (l *linkedList[T]) MoveToFront(e *element[T]) {
 	if e.list != l || l.root.next == e {
 		return
 	}
 	l.move(e, &l.root)
 }
 
-func (l *LinkedList[T]) MoveToBack(e *Element[T]) {
+func (l *linkedList[T]) MoveToBack(e *element[T]) {
 	if e.list != l || l.root.prev == e {
 		return
 	}
 	l.move(e, l.root.prev)
 }
 
-func (l *LinkedList[T]) MoveBefore(e, mark *Element[T]) {
+func (l *linkedList[T]) MoveBefore(e, mark *element[T]) {
 	if e.list != l || e == mark || mark.list != l {
 		return
 	}
 	l.move(e, mark.prev)
 }
 
-func (l *LinkedList[T]) MoveAfter(e, mark *Element[T]) {
+func (l *linkedList[T]) MoveAfter(e, mark *element[T]) {
 	if e.list != l || e == mark || mark.list != l {
 		return
 	}
 	l.move(e, mark)
 }
 
-func (l *LinkedList[T]) InsertBefore(v T, mark *Element[T]) *Element[T] {
+func (l *linkedList[T]) InsertBefore(v T, mark *element[T]) *element[T] {
 	if mark.list != l {
 		return nil
 	}
 	return l.insertValue(v, mark.prev)
 }
 
-func (l *LinkedList[T]) InsertAfter(v T, mark *Element[T]) *Element[T] {
+func (l *linkedList[T]) InsertAfter(v T, mark *element[T]) *element[T] {
 	if mark.list != l {
 		return nil
 	}
 	return l.insertValue(v, mark)
 }
 
-func (l *LinkedList[T]) PushBackList(other *LinkedList[T]) {
+func (l *linkedList[T]) PushBackList(other *linkedList[T]) {
 	l.lazyInit()
 	e := other.Front()
 	for i := other.Len(); i > 0; i-- {
@@ -179,7 +179,7 @@ func (l *LinkedList[T]) PushBackList(other *LinkedList[T]) {
 	}
 }
 
-func (l *LinkedList[T]) PushFrontList(other *LinkedList[T]) {
+func (l *linkedList[T]) PushFrontList(other *linkedList[T]) {
 	l.lazyInit()
 	for i, e := other.Len(), other.Back(); i > 0; i, e = i-1, e.Prev() {
 		l.insertValue(e.Value, &l.root)
