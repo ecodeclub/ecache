@@ -210,7 +210,6 @@ func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Du
 	return nil
 }
 
-// SetNX 由 strategy 统一控制过期时间
 func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
