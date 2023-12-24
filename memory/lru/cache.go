@@ -27,7 +27,6 @@ import (
 
 	"github.com/ecodeclub/ecache"
 	"github.com/ecodeclub/ecache/internal/errs"
-	"github.com/hashicorp/golang-lru/v2/simplelru"
 )
 
 var (
@@ -35,36 +34,34 @@ var (
 )
 
 type Cache struct {
-	lock   sync.RWMutex
-	client simplelru.LRUCache[string, any]
+	lock sync.RWMutex
+	lru  *LRU[string, any]
 }
 
-func NewCache(client simplelru.LRUCache[string, any]) *Cache {
+func NewCache(lru *LRU[string, any]) *Cache {
 	return &Cache{
-		lock:   sync.RWMutex{},
-		client: client,
+		lock: sync.RWMutex{},
+		lru:  lru,
 	}
 }
 
-// Set expiration 无效 由lru 统一控制过期时间
 func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
-	c.client.Add(key, val)
+	c.lru.AddTTL(key, val, expiration)
 	return nil
 }
 
-// SetNX expiration 无效 由lru 统一控制过期时间
+// SetNX 由 strategy 统一控制过期时间
 func (c *Cache) SetNX(ctx context.Context, key string, val any, expiration time.Duration) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.client.Contains(key) {
+	if c.lru.Contains(key) {
 		return false, nil
 	}
 
-	c.client.Add(key, val)
+	c.lru.AddTTL(key, val, expiration)
 
 	return true, nil
 }
@@ -73,7 +70,7 @@ func (c *Cache) Get(ctx context.Context, key string) (val ecache.Value) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	var ok bool
-	val.Val, ok = c.client.Get(key)
+	val.Val, ok = c.lru.Get(key)
 	if !ok {
 		val.Err = errs.ErrKeyNotExist
 	}
@@ -86,12 +83,12 @@ func (c *Cache) GetSet(ctx context.Context, key string, val string) (result ecac
 	defer c.lock.Unlock()
 
 	var ok bool
-	result.Val, ok = c.client.Get(key)
+	result.Val, ok = c.lru.Get(key)
 	if !ok {
 		result.Err = errs.ErrKeyNotExist
 	}
 
-	c.client.Add(key, val)
+	c.lru.Add(key, val)
 
 	return
 }
@@ -105,11 +102,11 @@ func (c *Cache) Delete(ctx context.Context, key ...string) (int64, error) {
 		if ctx.Err() != nil {
 			return n, ctx.Err()
 		}
-		_, ok := c.client.Get(k)
+		_, ok := c.lru.Get(k)
 		if !ok {
 			continue
 		}
-		if c.client.Remove(k) {
+		if c.lru.Remove(k) {
 			n++
 		} else {
 			return n, fmt.Errorf("%w: key = %s", errs.ErrDeleteKeyFailed, k)
@@ -137,12 +134,12 @@ func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.client.Get(key)
+	result.Val, ok = c.lru.Get(key)
 	if !ok {
 		l := &list.ConcurrentList[ecache.Value]{
 			List: list.NewLinkedListOf[ecache.Value](c.anySliceToValueSlice(val...)),
 		}
-		c.client.Add(key, l)
+		c.lru.Add(key, l)
 		return int64(l.Len()), nil
 	}
 
@@ -156,7 +153,7 @@ func (c *Cache) LPush(ctx context.Context, key string, val ...any) (int64, error
 		return 0, err
 	}
 
-	c.client.Add(key, data)
+	c.lru.Add(key, data)
 	return int64(data.Len()), nil
 }
 
@@ -167,7 +164,7 @@ func (c *Cache) LPop(ctx context.Context, key string) (val ecache.Value) {
 	var (
 		ok bool
 	)
-	val.Val, ok = c.client.Get(key)
+	val.Val, ok = c.lru.Get(key)
 	if !ok {
 		val.Err = errs.ErrKeyNotExist
 		return
@@ -197,7 +194,7 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.client.Get(key)
+	result.Val, ok = c.lru.Get(key)
 	if !ok {
 		result.Val = set.NewMapSet[any](8)
 	}
@@ -210,7 +207,7 @@ func (c *Cache) SAdd(ctx context.Context, key string, members ...any) (int64, er
 	for _, value := range members {
 		s.Add(value)
 	}
-	c.client.Add(key, s)
+	c.lru.Add(key, s)
 
 	return int64(len(s.Keys())), nil
 }
@@ -219,7 +216,7 @@ func (c *Cache) SRem(ctx context.Context, key string, members ...any) (int64, er
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	result, ok := c.client.Get(key)
+	result, ok := c.lru.Get(key)
 	if !ok {
 		return 0, errs.ErrKeyNotExist
 	}
@@ -247,9 +244,9 @@ func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, err
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.client.Get(key)
+	result.Val, ok = c.lru.Get(key)
 	if !ok {
-		c.client.Add(key, value)
+		c.lru.Add(key, value)
 		return value, nil
 	}
 
@@ -259,7 +256,7 @@ func (c *Cache) IncrBy(ctx context.Context, key string, value int64) (int64, err
 	}
 
 	newVal := incr + value
-	c.client.Add(key, newVal)
+	c.lru.Add(key, newVal)
 
 	return newVal, nil
 }
@@ -272,9 +269,9 @@ func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, err
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.client.Get(key)
+	result.Val, ok = c.lru.Get(key)
 	if !ok {
-		c.client.Add(key, -value)
+		c.lru.Add(key, -value)
 		return -value, nil
 	}
 
@@ -284,7 +281,7 @@ func (c *Cache) DecrBy(ctx context.Context, key string, value int64) (int64, err
 	}
 
 	newVal := decr - value
-	c.client.Add(key, newVal)
+	c.lru.Add(key, newVal)
 
 	return newVal, nil
 }
@@ -297,9 +294,9 @@ func (c *Cache) IncrByFloat(ctx context.Context, key string, value float64) (flo
 		ok     bool
 		result = ecache.Value{}
 	)
-	result.Val, ok = c.client.Get(key)
+	result.Val, ok = c.lru.Get(key)
 	if !ok {
-		c.client.Add(key, value)
+		c.lru.Add(key, value)
 		return value, nil
 	}
 
@@ -309,7 +306,7 @@ func (c *Cache) IncrByFloat(ctx context.Context, key string, value float64) (flo
 	}
 
 	newVal := val + value
-	c.client.Add(key, newVal)
+	c.lru.Add(key, newVal)
 
 	return newVal, nil
 }

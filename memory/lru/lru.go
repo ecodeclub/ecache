@@ -23,20 +23,18 @@ const (
 	defaultCapacity = 100
 )
 
-var defaultExpiresAt = time.Time{}
-
-type Entry[K comparable, V any] struct {
+type entry[K comparable, V any] struct {
 	key       K
 	value     V
 	expiresAt time.Time
 }
 
-func (e Entry[K, V]) isExpired() bool {
+func (e entry[K, V]) isExpired() bool {
 	return e.expiresAt.Before(time.Now())
 }
 
-func (e Entry[K, V]) existExpiration() bool {
-	return !e.expiresAt.Equal(defaultExpiresAt)
+func (e entry[K, V]) existExpiration() bool {
+	return !e.expiresAt.Equal(time.Time{})
 }
 
 type EvictCallback[K comparable, V any] func(key K, value V)
@@ -58,15 +56,15 @@ func WithCapacity[K comparable, V any](capacity int) Option[K, V] {
 type LRU[K comparable, V any] struct {
 	lock     sync.RWMutex
 	capacity int
-	list     *LinkedList[Entry[K, V]]
-	data     map[K]*Element[Entry[K, V]]
+	list     *LinkedList[entry[K, V]]
+	data     map[K]*Element[entry[K, V]]
 	callback EvictCallback[K, V]
 }
 
 func NewLRU[K comparable, V any](options ...Option[K, V]) *LRU[K, V] {
 	res := &LRU[K, V]{
-		list:     NewLinkedList[Entry[K, V]](),
-		data:     make(map[K]*Element[Entry[K, V]], 16),
+		list:     NewLinkedList[entry[K, V]](),
+		data:     make(map[K]*Element[entry[K, V]], 16),
 		capacity: defaultCapacity,
 	}
 	for _, opt := range options {
@@ -87,7 +85,7 @@ func (l *LRU[K, V]) Purge() {
 	l.list.Init()
 }
 
-func (l *LRU[K, V]) pushEntry(key K, ent Entry[K, V]) (evicted bool) {
+func (l *LRU[K, V]) pushEntry(key K, ent entry[K, V]) (evicted bool) {
 	if elem, ok := l.data[key]; ok {
 		elem.Value = ent
 		l.list.MoveToFront(elem)
@@ -103,14 +101,13 @@ func (l *LRU[K, V]) pushEntry(key K, ent Entry[K, V]) (evicted bool) {
 }
 
 func (l *LRU[K, V]) addTTL(key K, value V, expiration time.Duration) (evicted bool) {
-	ent := Entry[K, V]{key: key, value: value,
+	ent := entry[K, V]{key: key, value: value,
 		expiresAt: time.Now().Add(expiration)}
 	return l.pushEntry(key, ent)
 }
 
 func (l *LRU[K, V]) add(key K, value V) (evicted bool) {
-	ent := Entry[K, V]{key: key, value: value,
-		expiresAt: defaultExpiresAt}
+	ent := entry[K, V]{key: key, value: value}
 	return l.pushEntry(key, ent)
 }
 
@@ -190,7 +187,7 @@ func (l *LRU[K, V]) removeOldest() {
 	}
 }
 
-func (l *LRU[K, V]) removeElement(elem *Element[Entry[K, V]]) {
+func (l *LRU[K, V]) removeElement(elem *Element[entry[K, V]]) {
 	l.list.Remove(elem)
 	entry := elem.Value
 	l.delete(entry.key)
