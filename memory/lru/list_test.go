@@ -20,14 +20,11 @@ import (
 )
 
 func Example() {
-	// Create a new list and put some numbers in it.
 	l := newLinkedList[int]()
 	e4 := l.PushBack(4)
 	e1 := l.PushFront(1)
 	l.InsertBefore(3, e4)
 	l.InsertAfter(2, e1)
-
-	// Iterate through list and print its contents.
 	for e := l.Front(); e != nil; e = e.Next() {
 		fmt.Println(e.Value)
 	}
@@ -54,16 +51,13 @@ func checkLinkedListPointers[T any](t *testing.T, l *linkedList[T], es []*elemen
 		return
 	}
 
-	// zero length LinkLists must be the zero value or properly initialized (sentinel circle)
 	if len(es) == 0 {
 		if l.root.next != nil && l.root.next != root || l.root.prev != nil && l.root.prev != root {
 			t.Errorf("l.root.next = %p, l.root.prev = %p; both should both be nil or %p", l.root.next, l.root.prev, root)
 		}
 		return
 	}
-	// len(es) > 0
 
-	// check internal and external prev/next connections
 	for i, e := range es {
 		prev := root
 		Prev := (*element[T])(nil)
@@ -96,7 +90,6 @@ func checkLinkedListPointers[T any](t *testing.T, l *linkedList[T], es []*elemen
 func TestLinkedList(t *testing.T) {
 	l := newLinkedList[any]()
 	checkLinkedListPointers(t, l, []*element[any]{})
-	// Single element LinkList
 	e := l.PushFront("a")
 	checkLinkedListPointers(t, l, []*element[any]{e})
 	l.MoveToFront(e)
@@ -106,7 +99,6 @@ func TestLinkedList(t *testing.T) {
 	l.Remove(e)
 	checkLinkedListPointers(t, l, []*element[any]{})
 
-	// Bigger LinkList
 	e2 := l.PushFront(2)
 	e1 := l.PushFront(1)
 	e3 := l.PushBack(3)
@@ -116,44 +108,43 @@ func TestLinkedList(t *testing.T) {
 	l.Remove(e2)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e3, e4})
 
-	l.MoveToFront(e3) // move from middle
+	l.MoveToFront(e3)
 	checkLinkedListPointers(t, l, []*element[any]{e3, e1, e4})
 
 	l.MoveToFront(e1)
-	l.MoveToBack(e3) // move from middle
+	l.MoveToBack(e3)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3})
 
-	l.MoveToFront(e3) // move from back
+	l.MoveToFront(e3)
 	checkLinkedListPointers(t, l, []*element[any]{e3, e1, e4})
-	l.MoveToFront(e3) // should be no-op
+	l.MoveToFront(e3)
 	checkLinkedListPointers(t, l, []*element[any]{e3, e1, e4})
 
-	l.MoveToBack(e3) // move from front
+	l.MoveToBack(e3)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3})
-	l.MoveToBack(e3) // should be no-op
+	l.MoveToBack(e3)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3})
 
-	e2 = l.InsertBefore(2, e1) // insert before front
+	e2 = l.InsertBefore(2, e1)
 	checkLinkedListPointers(t, l, []*element[any]{e2, e1, e4, e3})
 	l.Remove(e2)
-	e2 = l.InsertBefore(2, e4) // insert before middle
+	e2 = l.InsertBefore(2, e4)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e2, e4, e3})
 	l.Remove(e2)
-	e2 = l.InsertBefore(2, e3) // insert before back
+	e2 = l.InsertBefore(2, e3)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e2, e3})
 	l.Remove(e2)
 
-	e2 = l.InsertAfter(2, e1) // insert after front
+	e2 = l.InsertAfter(2, e1)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e2, e4, e3})
 	l.Remove(e2)
-	e2 = l.InsertAfter(2, e4) // insert after middle
+	e2 = l.InsertAfter(2, e4)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e2, e3})
 	l.Remove(e2)
-	e2 = l.InsertAfter(2, e3) // insert after back
+	e2 = l.InsertAfter(2, e3)
 	checkLinkedListPointers(t, l, []*element[any]{e1, e4, e3, e2})
 	l.Remove(e2)
 
-	// Check standard iteration.
 	sum := 0
 	for e := l.Front(); e != nil; e = e.Next() {
 		if i, ok := e.Value.(int); ok {
@@ -164,7 +155,6 @@ func TestLinkedList(t *testing.T) {
 		t.Errorf("sum over l = %d, want 4", sum)
 	}
 
-	// Clear all elements by iterating
 	var next *element[any]
 	for e := l.Front(); e != nil; e = next {
 		next = e.Next()
@@ -255,7 +245,7 @@ func TestIssue4103Ele(t *testing.T) {
 	l2.PushBack(4)
 
 	e := l1.Front()
-	l2.Remove(e) // l2 should not change because e is not an element of l2
+	l2.Remove(e)
 	if n := l2.Len(); n != 2 {
 		t.Errorf("l2.Len() = %d, want 2", n)
 	}
