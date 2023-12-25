@@ -33,24 +33,6 @@ var (
 	_ ecache.Cache = (*Cache)(nil)
 )
 
-//type entry[K comparable, V any] struct {
-//	key       K
-//	value     V
-//	expiresAt time.Time
-//}
-//
-//func (e entry[K, V]) isExpired() bool {
-//	return e.expiresAt.Before(time.Now())
-//}
-//
-//func (e entry[K, V]) existExpiration() bool {
-//	return !e.expiresAt.IsZero()
-//}
-
-const (
-	defaultCapacity = 100
-)
-
 type entry struct {
 	key       string
 	value     any
@@ -69,15 +51,9 @@ type EvictCallback func(key string, value any)
 
 type Option func(l *Cache)
 
-func WithCallback(callback func(k string, v any)) Option {
+func WithEvictCallback(callback func(k string, v any)) Option {
 	return func(l *Cache) {
 		l.callback = callback
-	}
-}
-
-func WithCapacity(capacity int) Option {
-	return func(l *Cache) {
-		l.capacity = capacity
 	}
 }
 
@@ -89,11 +65,11 @@ type Cache struct {
 	callback EvictCallback
 }
 
-func NewCache(options ...Option) *Cache {
+func NewCache(capacity int, options ...Option) *Cache {
 	res := &Cache{
 		list:     newLinkedList[entry](),
-		data:     make(map[string]*element[entry], 16),
-		capacity: defaultCapacity,
+		data:     make(map[string]*element[entry], capacity),
+		capacity: capacity,
 	}
 	for _, opt := range options {
 		opt(res)
@@ -136,16 +112,6 @@ func (c *Cache) get(key string) (value any, ok bool) {
 		}
 		c.list.MoveToFront(elem)
 		return ent.value, true
-	}
-	return
-}
-
-func (c *Cache) RemoveOldest() (key string, value any, ok bool) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if elem := c.list.Back(); elem != nil {
-		c.removeElement(elem)
-		return elem.Value.key, elem.Value.value, true
 	}
 	return
 }

@@ -34,7 +34,7 @@ func TestCache_Set(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name  string
@@ -77,7 +77,7 @@ func TestCache_Get(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -101,7 +101,7 @@ func TestCache_Get(t *testing.T) {
 			wantVal: "hello ecache",
 		},
 		{
-			name: "get expired value",
+			name: "get set TTL value",
 			before: func(t *testing.T) {
 				assert.Equal(t, false,
 					cache.addTTL("test", "hello ecache", time.Second))
@@ -143,7 +143,7 @@ func TestCache_SetNX(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(1), WithCallback(onEvicted))
+	cache := NewCache(1, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -212,7 +212,7 @@ func TestCache_GetSet(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -270,7 +270,7 @@ func TestCache_GetSet(t *testing.T) {
 }
 
 func TestCache_Delete(t *testing.T) {
-	cache := NewCache(WithCapacity(5))
+	cache := NewCache(5)
 
 	testCases := []struct {
 		name   string
@@ -404,7 +404,7 @@ func TestCache_LPush(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -486,7 +486,7 @@ func TestCache_LPop(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -581,7 +581,7 @@ func TestCache_SAdd(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -651,7 +651,7 @@ func TestCache_SRem(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -737,7 +737,7 @@ func TestCache_IncrBy(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -804,7 +804,7 @@ func TestCache_DecrBy(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
@@ -871,7 +871,7 @@ func TestCache_IncrByFloat(t *testing.T) {
 	onEvicted := func(key string, value any) {
 		evictCounter++
 	}
-	cache := NewCache(WithCapacity(5), WithCallback(onEvicted))
+	cache := NewCache(5, WithEvictCallback(onEvicted))
 
 	testCase := []struct {
 		name   string
