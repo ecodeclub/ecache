@@ -80,10 +80,10 @@ func NewCache(capacity int, options ...Option) *Cache {
 func (c *Cache) pushEntry(key string, ent entry) (evicted bool) {
 	if elem, ok := c.data[key]; ok {
 		elem.Value = ent
-		c.list.MoveToFront(elem)
+		c.list.moveToFront(elem)
 		return false
 	}
-	elem := c.list.PushFront(ent)
+	elem := c.list.pushFront(ent)
 	c.data[key] = elem
 	evict := c.len() > c.capacity
 	if evict {
@@ -110,7 +110,7 @@ func (c *Cache) get(key string) (value any, ok bool) {
 			c.removeElement(elem)
 			return
 		}
-		c.list.MoveToFront(elem)
+		c.list.moveToFront(elem)
 		return ent.value, true
 	}
 	return
@@ -159,7 +159,7 @@ func (c *Cache) delete(key string) {
 
 func (c *Cache) len() int {
 	var length int
-	for elem := c.list.Back(); elem != nil; elem = elem.Prev() {
+	for elem := c.list.Back(); elem != nil; elem = elem.prevElem() {
 		if elem.Value.existExpiration() && elem.Value.isExpired() {
 			c.removeElement(elem)
 			continue

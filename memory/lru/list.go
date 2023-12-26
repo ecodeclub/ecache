@@ -20,14 +20,14 @@ type element[T any] struct {
 	next, prev *element[T]
 }
 
-func (e *element[T]) Next() *element[T] {
+func (e *element[T]) nextElem() *element[T] {
 	if n := e.next; e.list != nil && n != &e.list.root {
 		return n
 	}
 	return nil
 }
 
-func (e *element[T]) Prev() *element[T] {
+func (e *element[T]) prevElem() *element[T] {
 	if p := e.prev; e.list != nil && p != &e.list.root {
 		return p
 	}
@@ -35,35 +35,35 @@ func (e *element[T]) Prev() *element[T] {
 }
 
 type linkedList[T any] struct {
-	root element[T]
-	len  int
+	root     element[T]
+	capacity int
 }
 
 func newLinkedList[T any]() *linkedList[T] {
 	l := &linkedList[T]{}
-	return l.Init()
+	return l.init()
 }
 
-func (l *linkedList[T]) Init() *linkedList[T] {
+func (l *linkedList[T]) init() *linkedList[T] {
 	l.root.next = &l.root
 	l.root.prev = &l.root
-	l.len = 0
+	l.capacity = 0
 	return l
 }
 
-func (l *linkedList[T]) Len() int {
-	return l.len
+func (l *linkedList[T]) len() int {
+	return l.capacity
 }
 
 func (l *linkedList[T]) Front() *element[T] {
-	if l.len == 0 {
+	if l.capacity == 0 {
 		return nil
 	}
 	return l.root.next
 }
 
 func (l *linkedList[T]) Back() *element[T] {
-	if l.len == 0 {
+	if l.capacity == 0 {
 		return nil
 	}
 	return l.root.prev
@@ -71,7 +71,7 @@ func (l *linkedList[T]) Back() *element[T] {
 
 func (l *linkedList[T]) lazyInit() {
 	if l.root.next == nil {
-		l.Init()
+		l.init()
 	}
 }
 
@@ -81,7 +81,7 @@ func (l *linkedList[T]) insert(e, at *element[T]) *element[T] {
 	e.prev.next = e
 	e.next.prev = e
 	e.list = l
-	l.len++
+	l.capacity++
 	return e
 }
 
@@ -95,7 +95,7 @@ func (l *linkedList[T]) remove(e *element[T]) {
 	e.next = nil
 	e.prev = nil
 	e.list = nil
-	l.len--
+	l.capacity--
 }
 
 func (l *linkedList[T]) move(e, at *element[T]) {
@@ -118,70 +118,70 @@ func (l *linkedList[T]) Remove(e *element[T]) any {
 	return e.Value
 }
 
-func (l *linkedList[T]) PushFront(v T) *element[T] {
+func (l *linkedList[T]) pushFront(v T) *element[T] {
 	l.lazyInit()
 	return l.insertValue(v, &l.root)
 }
 
-func (l *linkedList[T]) PushBack(v T) *element[T] {
+func (l *linkedList[T]) pushBack(v T) *element[T] {
 	l.lazyInit()
 	return l.insertValue(v, l.root.prev)
 }
 
-func (l *linkedList[T]) MoveToFront(e *element[T]) {
+func (l *linkedList[T]) moveToFront(e *element[T]) {
 	if e.list != l || l.root.next == e {
 		return
 	}
 	l.move(e, &l.root)
 }
 
-func (l *linkedList[T]) MoveToBack(e *element[T]) {
+func (l *linkedList[T]) moveToBack(e *element[T]) {
 	if e.list != l || l.root.prev == e {
 		return
 	}
 	l.move(e, l.root.prev)
 }
 
-func (l *linkedList[T]) MoveBefore(e, mark *element[T]) {
+func (l *linkedList[T]) moveBefore(e, mark *element[T]) {
 	if e.list != l || e == mark || mark.list != l {
 		return
 	}
 	l.move(e, mark.prev)
 }
 
-func (l *linkedList[T]) MoveAfter(e, mark *element[T]) {
+func (l *linkedList[T]) moveAfter(e, mark *element[T]) {
 	if e.list != l || e == mark || mark.list != l {
 		return
 	}
 	l.move(e, mark)
 }
 
-func (l *linkedList[T]) InsertBefore(v T, mark *element[T]) *element[T] {
+func (l *linkedList[T]) insertBefore(v T, mark *element[T]) *element[T] {
 	if mark.list != l {
 		return nil
 	}
 	return l.insertValue(v, mark.prev)
 }
 
-func (l *linkedList[T]) InsertAfter(v T, mark *element[T]) *element[T] {
+func (l *linkedList[T]) insertAfter(v T, mark *element[T]) *element[T] {
 	if mark.list != l {
 		return nil
 	}
 	return l.insertValue(v, mark)
 }
 
-func (l *linkedList[T]) PushBackList(other *linkedList[T]) {
+func (l *linkedList[T]) pushBackList(other *linkedList[T]) {
 	l.lazyInit()
 	e := other.Front()
-	for i := other.Len(); i > 0; i-- {
+	for i := other.len(); i > 0; i-- {
 		l.insertValue(e.Value, l.root.prev)
-		e = e.Next()
+		e = e.nextElem()
 	}
 }
 
-func (l *linkedList[T]) PushFrontList(other *linkedList[T]) {
+func (l *linkedList[T]) pushFrontList(other *linkedList[T]) {
 	l.lazyInit()
-	for i, e := other.Len(), other.Back(); i > 0; i, e = i-1, e.Prev() {
+	for i, e := other.len(), other.Back(); i > 0; i, e = i-1, e.prevElem() {
 		l.insertValue(e.Value, &l.root)
 	}
 }
