@@ -55,14 +55,14 @@ func (l *linkedList[T]) len() int {
 	return l.capacity
 }
 
-func (l *linkedList[T]) Front() *element[T] {
+func (l *linkedList[T]) front() *element[T] {
 	if l.capacity == 0 {
 		return nil
 	}
 	return l.root.next
 }
 
-func (l *linkedList[T]) Back() *element[T] {
+func (l *linkedList[T]) back() *element[T] {
 	if l.capacity == 0 {
 		return nil
 	}
@@ -111,7 +111,7 @@ func (l *linkedList[T]) move(e, at *element[T]) {
 	e.next.prev = e
 }
 
-func (l *linkedList[T]) Remove(e *element[T]) any {
+func (l *linkedList[T]) removeElem(e *element[T]) any {
 	if e.list == l {
 		l.remove(e)
 	}
@@ -172,7 +172,7 @@ func (l *linkedList[T]) insertAfter(v T, mark *element[T]) *element[T] {
 
 func (l *linkedList[T]) pushBackList(other *linkedList[T]) {
 	l.lazyInit()
-	e := other.Front()
+	e := other.front()
 	for i := other.len(); i > 0; i-- {
 		l.insertValue(e.Value, l.root.prev)
 		e = e.nextElem()
@@ -181,7 +181,7 @@ func (l *linkedList[T]) pushBackList(other *linkedList[T]) {
 
 func (l *linkedList[T]) pushFrontList(other *linkedList[T]) {
 	l.lazyInit()
-	for i, e := other.len(), other.Back(); i > 0; i, e = i-1, e.prevElem() {
+	for i, e := other.len(), other.back(); i > 0; i, e = i-1, e.prevElem() {
 		l.insertValue(e.Value, &l.root)
 	}
 }

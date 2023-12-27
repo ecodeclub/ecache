@@ -40,11 +40,7 @@ type entry struct {
 }
 
 func (e entry) isExpired() bool {
-	return e.expiresAt.Before(time.Now())
-}
-
-func (e entry) existExpiration() bool {
-	return !e.expiresAt.IsZero()
+	return !e.expiresAt.IsZero() && e.expiresAt.Before(time.Now())
 }
 
 type EvictCallback func(key string, value any)
@@ -77,7 +73,10 @@ func NewCache(capacity int, options ...Option) *Cache {
 	return res
 }
 
-func (c *Cache) pushEntry(key string, ent entry) (evicted bool) {
+func (c *Cache) pushEntry(key string, ent entry) bool {
+	if c.len() > c.capacity {
+		c.removeOldest()
+	}
 	if elem, ok := c.data[key]; ok {
 		elem.Value = ent
 		c.list.moveToFront(elem)
@@ -85,20 +84,16 @@ func (c *Cache) pushEntry(key string, ent entry) (evicted bool) {
 	}
 	elem := c.list.pushFront(ent)
 	c.data[key] = elem
-	evict := c.len() > c.capacity
-	if evict {
-		c.removeOldest()
-	}
-	return evict
+	return true
 }
 
-func (c *Cache) addTTL(key string, value any, expiration time.Duration) (evicted bool) {
+func (c *Cache) addTTL(key string, value any, expiration time.Duration) bool {
 	ent := entry{key: key, value: value,
 		expiresAt: time.Now().Add(expiration)}
 	return c.pushEntry(key, ent)
 }
 
-func (c *Cache) add(key string, value any) (evicted bool) {
+func (c *Cache) add(key string, value any) bool {
 	ent := entry{key: key, value: value}
 	return c.pushEntry(key, ent)
 }
@@ -106,7 +101,7 @@ func (c *Cache) add(key string, value any) (evicted bool) {
 func (c *Cache) get(key string) (value any, ok bool) {
 	if elem, exist := c.data[key]; exist {
 		ent := elem.Value
-		if ent.existExpiration() && ent.isExpired() {
+		if ent.isExpired() {
 			c.removeElement(elem)
 			return
 		}
@@ -117,13 +112,13 @@ func (c *Cache) get(key string) (value any, ok bool) {
 }
 
 func (c *Cache) removeOldest() {
-	if elem := c.list.Back(); elem != nil {
+	if elem := c.list.back(); elem != nil {
 		c.removeElement(elem)
 	}
 }
 
 func (c *Cache) removeElement(elem *element[entry]) {
-	c.list.Remove(elem)
+	c.list.removeElem(elem)
 	ent := elem.Value
 	c.delete(ent.key)
 	if c.callback != nil {
@@ -134,7 +129,7 @@ func (c *Cache) removeElement(elem *element[entry]) {
 func (c *Cache) remove(key string) (present bool) {
 	if elem, ok := c.data[key]; ok {
 		c.removeElement(elem)
-		if elem.Value.existExpiration() && elem.Value.isExpired() {
+		if elem.Value.isExpired() {
 			return false
 		}
 		return true
@@ -145,7 +140,7 @@ func (c *Cache) remove(key string) (present bool) {
 func (c *Cache) contains(key string) (ok bool) {
 	elem, ok := c.data[key]
 	if ok {
-		if elem.Value.existExpiration() && elem.Value.isExpired() {
+		if elem.Value.isExpired() {
 			c.removeElement(elem)
 			return false
 		}
@@ -159,8 +154,8 @@ func (c *Cache) delete(key string) {
 
 func (c *Cache) len() int {
 	var length int
-	for elem := c.list.Back(); elem != nil; elem = elem.prevElem() {
-		if elem.Value.existExpiration() && elem.Value.isExpired() {
+	for elem := c.list.back(); elem != nil; elem = elem.prevElem() {
+		if elem.Value.isExpired() {
 			c.removeElement(elem)
 			continue
 		}

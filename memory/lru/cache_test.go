@@ -92,10 +92,12 @@ func TestCache_Get(t *testing.T) {
 		{
 			name: "get value",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", "hello ecache"))
+				assert.Equal(t, true, cache.add("test", "hello ecache"))
+				assert.Equal(t, 0, evictCounter)
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
+				assert.Equal(t, 1, evictCounter)
 			},
 			key:     "test",
 			wantVal: "hello ecache",
@@ -103,13 +105,15 @@ func TestCache_Get(t *testing.T) {
 		{
 			name: "get set TTL value",
 			before: func(t *testing.T) {
-				assert.Equal(t, false,
+				assert.Equal(t, true,
 					cache.addTTL("test", "hello ecache", time.Second))
+				assert.Equal(t, 1, evictCounter)
 			},
 			after: func(t *testing.T) {
 				time.Sleep(time.Second)
 				_, ok := cache.get("test")
 				assert.Equal(t, false, ok)
+				assert.Equal(t, 2, evictCounter)
 			},
 			key:     "test",
 			wantVal: "hello ecache",
@@ -180,7 +184,7 @@ func TestCache_SetNX(t *testing.T) {
 		{
 			name: "setnx expired value",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.addTTL("test", "hello ecache", time.Second))
+				assert.Equal(t, true, cache.addTTL("test", "hello ecache", time.Second))
 			},
 			after: func(t *testing.T) {
 				time.Sleep(time.Second)
@@ -227,7 +231,7 @@ func TestCache_GetSet(t *testing.T) {
 		{
 			name: "getset value",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", "hello ecache"))
+				assert.Equal(t, true, cache.add("test", "hello ecache"))
 			},
 			after: func(t *testing.T) {
 				result, ok := cache.get("test")
@@ -444,7 +448,7 @@ func TestCache_LPush(t *testing.T) {
 				l := &list.ConcurrentList[ecache.Value]{
 					List: list.NewLinkedListOf[ecache.Value]([]ecache.Value{val}),
 				}
-				assert.Equal(t, false, cache.add("test", l))
+				assert.Equal(t, true, cache.add("test", l))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -456,7 +460,7 @@ func TestCache_LPush(t *testing.T) {
 		{
 			name: "lpush value not type",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", "string"))
+				assert.Equal(t, true, cache.add("test", "string"))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -505,7 +509,7 @@ func TestCache_LPop(t *testing.T) {
 				l := &list.ConcurrentList[ecache.Value]{
 					List: list.NewLinkedListOf[ecache.Value]([]ecache.Value{val}),
 				}
-				assert.Equal(t, false, cache.add("test", l))
+				assert.Equal(t, true, cache.add("test", l))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -523,7 +527,7 @@ func TestCache_LPop(t *testing.T) {
 				l := &list.ConcurrentList[ecache.Value]{
 					List: list.NewLinkedListOf[ecache.Value]([]ecache.Value{val, val2}),
 				}
-				assert.Equal(t, false, cache.add("test", l))
+				assert.Equal(t, true, cache.add("test", l))
 			},
 			after: func(t *testing.T) {
 				val, ok := cache.get("test")
@@ -544,7 +548,7 @@ func TestCache_LPop(t *testing.T) {
 		{
 			name: "lpop value type error",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", "hello world"))
+				assert.Equal(t, true, cache.add("test", "hello world"))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -609,7 +613,7 @@ func TestCache_SAdd(t *testing.T) {
 				s := set.NewMapSet[any](8)
 				s.Add("hello world")
 
-				assert.Equal(t, false, cache.add("test", s))
+				assert.Equal(t, true, cache.add("test", s))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -621,7 +625,7 @@ func TestCache_SAdd(t *testing.T) {
 		{
 			name: "sadd value type err",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", "string"))
+				assert.Equal(t, true, cache.add("test", "string"))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -672,7 +676,7 @@ func TestCache_SRem(t *testing.T) {
 				s.Add("hello world")
 				s.Add("hello ecache")
 
-				assert.Equal(t, false, cache.add("test", s))
+				assert.Equal(t, true, cache.add("test", s))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -687,7 +691,7 @@ func TestCache_SRem(t *testing.T) {
 				s := set.NewMapSet[any](8)
 				s.Add("hello world")
 
-				assert.Equal(t, false, cache.add("test", s))
+				assert.Equal(t, true, cache.add("test", s))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -707,7 +711,7 @@ func TestCache_SRem(t *testing.T) {
 		{
 			name: "srem value type error",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", int64(1)))
+				assert.Equal(t, true, cache.add("test", int64(1)))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -762,7 +766,7 @@ func TestCache_IncrBy(t *testing.T) {
 		{
 			name: "incrby value add",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", int64(1)))
+				assert.Equal(t, true, cache.add("test", int64(1)))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -774,7 +778,7 @@ func TestCache_IncrBy(t *testing.T) {
 		{
 			name: "incrby value type error",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", 12.62))
+				assert.Equal(t, true, cache.add("test", 12.62))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -829,7 +833,7 @@ func TestCache_DecrBy(t *testing.T) {
 		{
 			name: "decrby old value",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", int64(3)))
+				assert.Equal(t, true, cache.add("test", int64(3)))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -841,7 +845,7 @@ func TestCache_DecrBy(t *testing.T) {
 		{
 			name: "decrby value type error",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", 3.156))
+				assert.Equal(t, true, cache.add("test", 3.156))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -896,7 +900,7 @@ func TestCache_IncrByFloat(t *testing.T) {
 		{
 			name: "incrbyfloat decr value",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", 3.1))
+				assert.Equal(t, true, cache.add("test", 3.1))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
@@ -908,7 +912,7 @@ func TestCache_IncrByFloat(t *testing.T) {
 		{
 			name: "incrbyfloat value type error",
 			before: func(t *testing.T) {
-				assert.Equal(t, false, cache.add("test", "hello"))
+				assert.Equal(t, true, cache.add("test", "hello"))
 			},
 			after: func(t *testing.T) {
 				assert.Equal(t, true, cache.remove("test"))
