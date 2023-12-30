@@ -46,6 +46,13 @@ func NewCache(client simplelru.LRUCache[string, any]) *Cache {
 	}
 }
 
+func NewNamespaceCacheForLru(c *Cache, namespace string) *ecache.NamespaceCache {
+	return &ecache.NamespaceCache{
+		C:         c,
+		Namespace: namespace,
+	}
+}
+
 // Set expiration 无效 由lru 统一控制过期时间
 func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
 	c.lock.Lock()
