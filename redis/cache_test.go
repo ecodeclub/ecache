@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ecodeclub/ecache"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/ecodeclub/ecache/internal/errs"
@@ -779,6 +781,35 @@ func TestCache_IncrByFloat(t *testing.T) {
 			result, err := c.IncrByFloat(context.Background(), tc.key, tc.val)
 			assert.Equal(t, tc.wantVal, result)
 			assert.Equal(t, tc.wantErr, err)
+		})
+	}
+}
+
+func TestNewNamespaceCacheForRedis(t *testing.T) {
+	type args struct {
+		c         *Cache
+		namespace string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *ecache.NamespaceCache
+	}{
+		{
+			name: "new namespace cache",
+			args: args{
+				c:         NewCache(nil),
+				namespace: "test",
+			},
+			want: &ecache.NamespaceCache{
+				C:         NewCache(nil),
+				Namespace: "test",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, NewNamespaceCacheForRedis(tt.args.c, tt.args.namespace), "NewNamespaceCacheForRedis(%v, %v)", tt.args.c, tt.args.namespace)
 		})
 	}
 }
