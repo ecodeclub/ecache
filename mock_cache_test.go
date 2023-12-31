@@ -357,6 +357,56 @@ func TestNamespaceCache_Delete(t *testing.T) {
 	}
 }
 
+// 测试当key只有一个的时候
+func TestNamespaceCache_Delete2(t *testing.T) {
+	type fields struct {
+		C         *MockCache
+		Namespace string
+	}
+	type args struct {
+		ctx context.Context
+		key []string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "test_delete2",
+			fields: fields{
+				C:         NewMockCache(gomock.NewController(t)),
+				Namespace: "app1:",
+			},
+			args: args{
+				ctx: context.Background(),
+				key: []string{"key1"},
+			},
+			want:    1,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &NamespaceCache{
+				C:         tt.fields.C,
+				Namespace: tt.fields.Namespace,
+			}
+			tt.fields.C.EXPECT().Delete(tt.args.ctx, tt.fields.Namespace+tt.args.key[0]).Return(tt.want, nil)
+			got, err := c.Delete(tt.args.ctx, tt.args.key...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Delete() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNamespaceCache_GetSet(t *testing.T) {
 	type fields struct {
 		C         *MockCache
