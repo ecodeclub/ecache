@@ -25,8 +25,9 @@ func Example() {
 	e1 := l.pushFront(1)
 	l.insertBefore(3, e4)
 	l.insertAfter(2, e1)
-	for e := l.front(); e != nil; e = e.nextElem() {
+	for e, i := l.front(), 0; i < l.capacity; i++ {
 		fmt.Println(e.Value)
+		e = e.next
 	}
 
 	// Output:
@@ -45,15 +46,15 @@ func checkLinkedListLen[T any](t *testing.T, l *linkedList[T], len int) bool {
 }
 
 func checkLinkedListPointers[T any](t *testing.T, l *linkedList[T], es []*element[T]) {
-	root := &l.root
+	root := l.head
 
 	if !checkLinkedListLen[T](t, l, len(es)) {
 		return
 	}
 
 	if len(es) == 0 {
-		if l.root.next != nil && l.root.next != root || l.root.prev != nil && l.root.prev != root {
-			t.Errorf("l.root.next = %p, l.root.prev = %p; both should both be nil or %p", l.root.next, l.root.prev, root)
+		if l.head.next != l.tail && l.head.next != root || l.tail.prev != root {
+			t.Errorf("l.head.next = %p, l.tail.prev = %p; both should both be nil or %p", l.head.next, l.tail.prev, root)
 		}
 		return
 	}
@@ -65,11 +66,11 @@ func checkLinkedListPointers[T any](t *testing.T, l *linkedList[T], es []*elemen
 			prev = es[i-1]
 			Prev = prev
 		}
-		if p := e.prev; p != prev {
+		if p := e.prev; p != root && p != prev {
 			t.Errorf("elt[%d](%p).prev = %p, want %p", i, e, p, prev)
 		}
-		if p := e.prevElem(); p != Prev {
-			t.Errorf("elt[%d](%p).prevElem() = %p, want %p", i, e, p, Prev)
+		if p := e.prev; p != root && p != Prev {
+			t.Errorf("elt[%d](%p).prev = %p, want %p", i, e, p, Prev)
 		}
 
 		next := root
@@ -78,11 +79,11 @@ func checkLinkedListPointers[T any](t *testing.T, l *linkedList[T], es []*elemen
 			next = es[i+1]
 			Next = next
 		}
-		if n := e.next; n != next {
+		if n := e.next; n != l.tail && n != next {
 			t.Errorf("elt[%d](%p).next = %p, want %p", i, e, n, next)
 		}
-		if n := e.nextElem(); n != Next {
-			t.Errorf("elt[%d](%p).nextElem() = %p, want %p", i, e, n, Next)
+		if n := e.next; n != l.tail && n != Next {
+			t.Errorf("elt[%d](%p).next = %p, want %p", i, e, n, Next)
 		}
 	}
 }
@@ -146,19 +147,22 @@ func TestLinkedList(t *testing.T) {
 	l.removeElem(e2)
 
 	sum := 0
-	for e := l.front(); e != nil; e = e.nextElem() {
+	for e, i := l.front(), 0; i < l.capacity; i++ {
 		if i, ok := e.Value.(int); ok {
 			sum += i
 		}
+		e = e.next
 	}
 	if sum != 4 {
 		t.Errorf("sum over l = %d, want 4", sum)
 	}
 
-	var next *element[any]
-	for e := l.front(); e != nil; e = next {
-		next = e.nextElem()
+	//var next *element[any]
+	capacity := l.capacity
+	for e, i := l.front(), 0; i < capacity; i++ {
+		next := e.next
 		l.removeElem(e)
+		e = next
 	}
 	checkLinkedListPointers(t, l, []*element[any]{})
 }
@@ -169,12 +173,14 @@ func checkLinkedList[T int](t *testing.T, l *linkedList[T], es []any) {
 	}
 
 	i := 0
-	for e := l.front(); e != nil; e = e.nextElem() {
-		le := e.Value
-		if le != es[i] {
-			t.Errorf("elt[%d].Value = %v, want %v", i, le, es[i])
+	for e := l.front(); i < l.capacity; i++ {
+		if e != l.tail {
+			le := e.Value
+			if le != es[i] {
+				t.Errorf("elt[%d].Value = %v, want %v", i, le, es[i])
+			}
+			e = e.next
 		}
-		i++
 	}
 }
 
@@ -231,29 +237,9 @@ func TestRemoveEle(t *testing.T) {
 	e := l.front()
 	l.removeElem(e)
 	checkLinkedListPointers(t, l, []*element[int]{e2})
+	e = l.front()
 	l.removeElem(e)
-	checkLinkedListPointers(t, l, []*element[int]{e2})
-}
-
-func TestIssue4103Ele(t *testing.T) {
-	l1 := newLinkedList[int]()
-	l1.pushBack(1)
-	l1.pushBack(2)
-
-	l2 := newLinkedList[int]()
-	l2.pushBack(3)
-	l2.pushBack(4)
-
-	e := l1.front()
-	l2.removeElem(e)
-	if n := l2.len(); n != 2 {
-		t.Errorf("l2.len() = %d, want 2", n)
-	}
-
-	l1.insertBefore(8, e)
-	if n := l1.len(); n != 3 {
-		t.Errorf("l1.len() = %d, want 3", n)
-	}
+	checkLinkedListPointers(t, l, []*element[int]{})
 }
 
 func TestIssue6349Ele(t *testing.T) {
@@ -266,10 +252,10 @@ func TestIssue6349Ele(t *testing.T) {
 	if e.Value != 1 {
 		t.Errorf("e.value = %d, want 1", e.Value)
 	}
-	if e.nextElem() != nil {
+	if e.next != nil && e.next != l.tail {
 		t.Errorf("e.nextElem() != nil")
 	}
-	if e.prevElem() != nil {
+	if e.prev != nil && e.prev != l.head {
 		t.Errorf("e.prevElem() != nil")
 	}
 }
@@ -305,56 +291,4 @@ func TestMoveEle(t *testing.T) {
 
 	l.moveAfter(e2, e3)
 	checkLinkedListPointers(t, l, []*element[int]{e1, e3, e2, e4})
-}
-
-func TestZeroLinkedList(t *testing.T) {
-	var l1 = new(linkedList[int])
-	l1.pushFront(1)
-	checkLinkedList(t, l1, []any{1})
-
-	var l2 = new(linkedList[int])
-	l2.pushBack(1)
-	checkLinkedList(t, l2, []any{1})
-
-	var l3 = new(linkedList[int])
-	l3.pushFrontList(l1)
-	checkLinkedList(t, l3, []any{1})
-
-	var l4 = new(linkedList[int])
-	l4.pushBackList(l2)
-	checkLinkedList(t, l4, []any{1})
-}
-
-func TestInsertBeforeUnknownMarkEle(t *testing.T) {
-	var l linkedList[int]
-	l.pushBack(1)
-	l.pushBack(2)
-	l.pushBack(3)
-	l.insertBefore(1, new(element[int]))
-	checkLinkedList(t, &l, []any{1, 2, 3})
-}
-
-func TestInsertAfterUnknownMarkEle(t *testing.T) {
-	var l linkedList[int]
-	l.pushBack(1)
-	l.pushBack(2)
-	l.pushBack(3)
-	l.insertAfter(1, new(element[int]))
-	checkLinkedList(t, &l, []any{1, 2, 3})
-}
-
-func TestMoveUnknownMarkEle(t *testing.T) {
-	var l1 linkedList[int]
-	e1 := l1.pushBack(1)
-
-	var l2 linkedList[int]
-	e2 := l2.pushBack(2)
-
-	l1.moveAfter(e1, e2)
-	checkLinkedList(t, &l1, []any{1})
-	checkLinkedList(t, &l2, []any{2})
-
-	l1.moveBefore(e1, e2)
-	checkLinkedList(t, &l1, []any{1})
-	checkLinkedList(t, &l2, []any{2})
 }

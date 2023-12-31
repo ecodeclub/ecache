@@ -154,11 +154,12 @@ func (c *Cache) delete(key string) {
 
 func (c *Cache) len() int {
 	var length int
-	for elem := c.list.back(); elem != nil; elem = elem.prevElem() {
+	for elem, i := c.list.back(), 0; i < c.list.len(); i++ {
 		if elem.Value.isExpired() {
 			c.removeElement(elem)
 			continue
 		}
+		elem = elem.prev
 		length++
 	}
 	return length

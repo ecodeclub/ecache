@@ -16,39 +16,23 @@ package lru
 
 type element[T any] struct {
 	Value      T
-	list       *linkedList[T]
 	next, prev *element[T]
 }
 
-func (e *element[T]) nextElem() *element[T] {
-	if n := e.next; e.list != nil && n != &e.list.root {
-		return n
-	}
-	return nil
-}
-
-func (e *element[T]) prevElem() *element[T] {
-	if p := e.prev; e.list != nil && p != &e.list.root {
-		return p
-	}
-	return nil
-}
-
 type linkedList[T any] struct {
-	root     element[T]
+	head     *element[T]
+	tail     *element[T]
 	capacity int
 }
 
 func newLinkedList[T any]() *linkedList[T] {
-	l := &linkedList[T]{}
-	return l.init()
-}
-
-func (l *linkedList[T]) init() *linkedList[T] {
-	l.root.next = &l.root
-	l.root.prev = &l.root
-	l.capacity = 0
-	return l
+	head := &element[T]{}
+	tail := &element[T]{next: head, prev: head}
+	head.next, head.prev = tail, tail
+	return &linkedList[T]{
+		head: head,
+		tail: tail,
+	}
 }
 
 func (l *linkedList[T]) len() int {
@@ -59,20 +43,14 @@ func (l *linkedList[T]) front() *element[T] {
 	if l.capacity == 0 {
 		return nil
 	}
-	return l.root.next
+	return l.head.next
 }
 
 func (l *linkedList[T]) back() *element[T] {
 	if l.capacity == 0 {
 		return nil
 	}
-	return l.root.prev
-}
-
-func (l *linkedList[T]) lazyInit() {
-	if l.root.next == nil {
-		l.init()
-	}
+	return l.tail.prev
 }
 
 func (l *linkedList[T]) insert(e, at *element[T]) *element[T] {
@@ -80,7 +58,6 @@ func (l *linkedList[T]) insert(e, at *element[T]) *element[T] {
 	e.next = at.next
 	e.prev.next = e
 	e.next.prev = e
-	e.list = l
 	l.capacity++
 	return e
 }
@@ -94,7 +71,6 @@ func (l *linkedList[T]) remove(e *element[T]) {
 	e.next.prev = e.prev
 	e.next = nil
 	e.prev = nil
-	e.list = nil
 	l.capacity--
 }
 
@@ -112,76 +88,56 @@ func (l *linkedList[T]) move(e, at *element[T]) {
 }
 
 func (l *linkedList[T]) removeElem(e *element[T]) any {
-	if e.list == l {
-		l.remove(e)
-	}
+	l.remove(e)
 	return e.Value
 }
 
 func (l *linkedList[T]) pushFront(v T) *element[T] {
-	l.lazyInit()
-	return l.insertValue(v, &l.root)
+	return l.insertValue(v, l.head)
 }
 
 func (l *linkedList[T]) pushBack(v T) *element[T] {
-	l.lazyInit()
-	return l.insertValue(v, l.root.prev)
+	return l.insertValue(v, l.tail.prev)
 }
 
 func (l *linkedList[T]) moveToFront(e *element[T]) {
-	if e.list != l || l.root.next == e {
-		return
-	}
-	l.move(e, &l.root)
+	l.move(e, l.head)
 }
 
 func (l *linkedList[T]) moveToBack(e *element[T]) {
-	if e.list != l || l.root.prev == e {
-		return
-	}
-	l.move(e, l.root.prev)
+	l.move(e, l.tail.prev)
 }
 
 func (l *linkedList[T]) moveBefore(e, mark *element[T]) {
-	if e.list != l || e == mark || mark.list != l {
-		return
-	}
 	l.move(e, mark.prev)
 }
 
 func (l *linkedList[T]) moveAfter(e, mark *element[T]) {
-	if e.list != l || e == mark || mark.list != l {
+	if e == mark {
 		return
 	}
 	l.move(e, mark)
 }
 
 func (l *linkedList[T]) insertBefore(v T, mark *element[T]) *element[T] {
-	if mark.list != l {
-		return nil
-	}
 	return l.insertValue(v, mark.prev)
 }
 
 func (l *linkedList[T]) insertAfter(v T, mark *element[T]) *element[T] {
-	if mark.list != l {
-		return nil
-	}
 	return l.insertValue(v, mark)
 }
 
 func (l *linkedList[T]) pushBackList(other *linkedList[T]) {
-	l.lazyInit()
 	e := other.front()
 	for i := other.len(); i > 0; i-- {
-		l.insertValue(e.Value, l.root.prev)
-		e = e.nextElem()
+		l.insertValue(e.Value, l.tail.prev)
+		e = e.next
 	}
 }
 
 func (l *linkedList[T]) pushFrontList(other *linkedList[T]) {
-	l.lazyInit()
-	for i, e := other.len(), other.back(); i > 0; i, e = i-1, e.prevElem() {
-		l.insertValue(e.Value, &l.root)
+	for i, e := other.len(), other.back(); i > 0; i-- {
+		l.insertValue(e.Value, l.head)
+		e = e.prev
 	}
 }
