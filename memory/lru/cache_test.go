@@ -910,33 +910,3 @@ func newSimpleLRUClient(size int) (simplelru.LRUCache[string, any], error) {
 	}
 	return simplelru.NewLRU[string, any](size, onEvicted)
 }
-
-func TestNewNamespaceCacheForLru(t *testing.T) {
-	type args struct {
-		c         *Cache
-		namespace string
-	}
-	tests := []struct {
-		name string
-		args args
-		want *ecache.NamespaceCache
-	}{
-		// TODO: Add test cases.
-		{
-			name: "test",
-			args: args{
-				c:         &Cache{},
-				namespace: "test",
-			},
-			want: &ecache.NamespaceCache{
-				C:         &Cache{},
-				Namespace: "test",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, NewNamespaceCacheForLru(tt.args.c, tt.args.namespace), "NewNamespaceCacheForLru(%v, %v)", tt.args.c, tt.args.namespace)
-		})
-	}
-}

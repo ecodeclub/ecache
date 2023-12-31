@@ -34,13 +34,6 @@ func NewCache(client redis.Cmdable) *Cache {
 	return &Cache{client: client}
 }
 
-func NewNamespaceCacheForRedis(c *Cache, namespace string) *ecache.NamespaceCache {
-	return &ecache.NamespaceCache{
-		C:         c,
-		Namespace: namespace,
-	}
-}
-
 func (c *Cache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
 	return c.client.Set(ctx, key, val, expiration).Err()
 }
