@@ -37,6 +37,9 @@ func (c *NamespaceCache) GetSet(ctx context.Context, key string, val string) Val
 }
 
 func (c *NamespaceCache) Delete(ctx context.Context, key ...string) (int64, error) {
+	if len(key) == 1 {
+		return c.C.Delete(ctx, c.Namespace+key[0])
+	}
 	newkey := make([]string, len(key))
 	for i, v := range key {
 		newkey[i] = c.Namespace + v
