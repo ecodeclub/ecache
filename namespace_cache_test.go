@@ -78,99 +78,49 @@ func TestNamespaceCache_DecrBy(t *testing.T) {
 }
 
 func TestNamespaceCache_Delete(t *testing.T) {
-	type fields struct {
-		C         *MockCache
-		Namespace string
-	}
-	type args struct {
-		ctx context.Context
-		key []string
-	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    int64
-		wantErr bool
+		name      string
+		keys      []string
+		mock      func(ctrl *gomock.Controller) Cache
+		wantCnt   int64
+		wantError bool
 	}{
 		{
-			name: "test_delete",
-			fields: fields{
-				C:         NewMockCache(gomock.NewController(t)),
-				Namespace: "app1:",
+			name:      "test_delete",
+			keys:      []string{"key1", "key2"},
+			wantCnt:   2,
+			wantError: false,
+			mock: func(ctrl *gomock.Controller) Cache {
+				c := NewMockCache(ctrl)
+				c.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(int64(2), nil)
+				return c
 			},
-			args: args{
-				ctx: context.Background(),
-				key: []string{"key1", "key2"},
+		},
+		{
+			name:      "test_delete_1",
+			keys:      []string{"key1"},
+			wantCnt:   1,
+			wantError: false,
+			mock: func(ctrl *gomock.Controller) Cache {
+				c := NewMockCache(ctrl)
+				c.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(int64(1), nil)
+				return c
 			},
-			want:    1,
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &NamespaceCache{
-				C:         tt.fields.C,
-				Namespace: tt.fields.Namespace,
-			}
-			tt.fields.C.EXPECT().Delete(tt.args.ctx, tt.fields.Namespace+tt.args.key[0], tt.fields.Namespace+tt.args.key[1]).Return(tt.want, nil)
-			got, err := c.Delete(tt.args.ctx, tt.args.key...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("Delete() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-// 测试当key只有一个的时候
-func TestNamespaceCache_Delete2(t *testing.T) {
-	type fields struct {
-		C         *MockCache
-		Namespace string
-	}
-	type args struct {
-		ctx context.Context
-		key []string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    int64
-		wantErr bool
-	}{
-		{
-			name: "test_delete2",
-			fields: fields{
-				C:         NewMockCache(gomock.NewController(t)),
+			c := NamespaceCache{
+				C:         tt.mock(gomock.NewController(t)),
 				Namespace: "app1:",
-			},
-			args: args{
-				ctx: context.Background(),
-				key: []string{"key1"},
-			},
-			want:    1,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &NamespaceCache{
-				C:         tt.fields.C,
-				Namespace: tt.fields.Namespace,
 			}
-			tt.fields.C.EXPECT().Delete(tt.args.ctx, tt.fields.Namespace+tt.args.key[0]).Return(tt.want, nil)
-			got, err := c.Delete(tt.args.ctx, tt.args.key...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := c.Delete(context.Background(), tt.keys...)
+			if (err != nil) != tt.wantError {
+				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantError)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("Delete() got = %v, want %v", got, tt.want)
+			if got != tt.wantCnt {
+				t.Errorf("Delete() got = %v, want %v", got, tt.wantCnt)
 			}
 		})
 	}
