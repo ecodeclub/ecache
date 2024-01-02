@@ -29,6 +29,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestLocalCache_cleanCycle(t *testing.T) {
+	c := NewCache(200, WithCycleInterval(time.Second))
+	err := c.Set(context.Background(), "key1", "value1", time.Millisecond*100)
+	require.NoError(t, err)
+	time.Sleep(time.Second * 3)
+	val := c.Get(context.Background(), "key1")
+	assert.Equal(t, errs.ErrKeyNotExist, val.Err)
+}
+
 func TestCache_Set(t *testing.T) {
 	evictCounter := 0
 	onEvicted := func(key string, value any) {

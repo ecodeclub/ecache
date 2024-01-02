@@ -53,28 +53,58 @@ func WithEvictCallback(callback func(k string, v any)) Option {
 	}
 }
 
+func WithCycleInterval(interval time.Duration) Option {
+	return func(l *Cache) {
+		l.cycleInterval = interval
+	}
+}
+
 type Cache struct {
-	lock     sync.RWMutex
-	capacity int
-	list     *linkedList[entry]
-	data     map[string]*element[entry]
-	callback EvictCallback
+	lock          sync.RWMutex
+	capacity      int
+	list          *linkedList[entry]
+	data          map[string]*element[entry]
+	callback      EvictCallback
+	cycleInterval time.Duration
 }
 
 func NewCache(capacity int, options ...Option) *Cache {
 	res := &Cache{
-		list:     newLinkedList[entry](),
-		data:     make(map[string]*element[entry], capacity),
-		capacity: capacity,
+		list:          newLinkedList[entry](),
+		data:          make(map[string]*element[entry], capacity),
+		capacity:      capacity,
+		cycleInterval: time.Second * 10,
 	}
 	for _, opt := range options {
 		opt(res)
 	}
+	res.cleanCycle()
 	return res
 }
 
+func (c *Cache) cleanCycle() {
+	go func() {
+		ticker := time.NewTicker(c.cycleInterval)
+		for range ticker.C {
+			cnt := 0
+			limit := c.list.len() / 3
+			c.lock.Lock()
+			for elem, i := c.list.back(), 0; i < c.list.len(); i++ {
+				if elem.Value.isExpired() {
+					c.removeElement(elem)
+				}
+				cnt++
+				if cnt >= limit {
+					break
+				}
+			}
+			c.lock.Unlock()
+		}
+	}()
+}
+
 func (c *Cache) pushEntry(key string, ent entry) bool {
-	if c.len() > c.capacity {
+	if len(c.data) >= c.capacity && c.len() >= c.capacity {
 		c.removeOldest()
 	}
 	if elem, ok := c.data[key]; ok {
