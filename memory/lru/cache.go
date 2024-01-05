@@ -93,6 +93,7 @@ func (c *Cache) cleanCycle() {
 				if elem.Value.isExpired() {
 					c.removeElement(elem)
 				}
+				elem = elem.prev
 				cnt++
 				if cnt >= limit {
 					break
@@ -105,6 +106,11 @@ func (c *Cache) cleanCycle() {
 
 func (c *Cache) pushEntry(key string, ent entry) bool {
 	if len(c.data) >= c.capacity && c.len() >= c.capacity {
+		if elem, ok := c.data[key]; ok {
+			elem.Value = ent
+			c.list.moveToFront(elem)
+			return false
+		}
 		c.removeOldest()
 	}
 	if elem, ok := c.data[key]; ok {

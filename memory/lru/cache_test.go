@@ -31,11 +31,79 @@ import (
 
 func TestLocalCache_cleanCycle(t *testing.T) {
 	c := NewCache(200, WithCycleInterval(time.Second))
-	err := c.Set(context.Background(), "key1", "value1", time.Millisecond*100)
-	require.NoError(t, err)
-	time.Sleep(time.Second * 3)
-	val := c.Get(context.Background(), "key1")
-	assert.Equal(t, errs.ErrKeyNotExist, val.Err)
+
+	testCase := []struct {
+		name   string
+		before func(t *testing.T)
+		after  func(t *testing.T)
+
+		key string
+
+		wantVal string
+		wantErr error
+	}{
+		{
+			name: "tail exist TTL value",
+			before: func(t *testing.T) {
+				ctx := context.Background()
+				err := c.Set(ctx, "test1", "hello1", time.Second)
+				assert.Nil(t, err)
+				err = c.Set(ctx, "test2", "hello2", time.Second*10)
+				assert.Nil(t, err)
+			},
+			after: func(t *testing.T) {
+				ctx := context.Background()
+				_, err := c.Delete(ctx, "test1", "test2")
+				assert.Nil(t, err)
+			},
+			key:     "test1",
+			wantVal: "",
+			wantErr: errs.ErrKeyNotExist,
+		},
+		{
+			name: "not exist TTL value",
+			before: func(t *testing.T) {
+				_ = c.add("test1", "hello1")
+			},
+			after: func(t *testing.T) {
+				_, err := c.Delete(context.Background(), "test1")
+				assert.Nil(t, err)
+			},
+			key:     "test1",
+			wantVal: "hello1",
+		},
+		{
+			name: "exist TTL value",
+			before: func(t *testing.T) {
+				ctx := context.Background()
+				err := c.Set(ctx, "test1", "hello1", time.Second*10)
+				assert.Nil(t, err)
+				err = c.Set(ctx, "test2", "hello2", time.Second)
+				assert.Nil(t, err)
+			},
+			after: func(t *testing.T) {
+				ctx := context.Background()
+				_, err := c.Delete(ctx, "test1", "test2")
+				assert.Nil(t, err)
+			},
+			key:     "test2",
+			wantVal: "",
+			wantErr: errs.ErrKeyNotExist,
+		},
+	}
+	for _, tc := range testCase {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.before(t)
+			time.Sleep(time.Second)
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFunc()
+			result := c.Get(ctx, tc.key)
+			val, err := result.String()
+			assert.Equal(t, tc.wantVal, val)
+			assert.Equal(t, tc.wantErr, err)
+			tc.after(t)
+		})
+	}
 }
 
 func TestCache_Set(t *testing.T) {
