@@ -63,7 +63,11 @@ func TestLocalCache_cleanCycle(t *testing.T) {
 		{
 			name: "not exist TTL value",
 			before: func(t *testing.T) {
-				_ = c.add("test1", "hello1")
+				ctx := context.Background()
+				err := c.Set(ctx, "test1", "hello1", time.Second)
+				assert.Nil(t, err)
+				res := c.GetSet(ctx, "test1", "hello1")
+				assert.Nil(t, res.Err)
 			},
 			after: func(t *testing.T) {
 				_, err := c.Delete(context.Background(), "test1")
