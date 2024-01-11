@@ -162,13 +162,10 @@ func (c *Cache) removeElement(elem *element[entry]) {
 	}
 }
 
-func (c *Cache) remove(key string) (present bool) {
+func (c *Cache) remove(key string) bool {
 	if elem, ok := c.data[key]; ok {
 		c.removeElement(elem)
-		if elem.Value.isExpired() {
-			return false
-		}
-		return true
+		return !elem.Value.isExpired()
 	}
 	return false
 }
