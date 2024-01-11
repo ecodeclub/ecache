@@ -87,8 +87,8 @@ func (c *Cache) cleanCycle() {
 		ticker := time.NewTicker(c.cycleInterval)
 		for range ticker.C {
 			cnt := 0
-			limit := c.list.len() / 3
 			c.lock.Lock()
+			limit := c.list.len() / 3
 			for elem, i := c.list.back(), 0; i < c.list.len(); i++ {
 				if elem.Value.isExpired() {
 					c.removeElement(elem)
